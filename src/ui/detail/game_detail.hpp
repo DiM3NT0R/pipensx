@@ -673,13 +673,19 @@ private:
                     currentInstallTarget() == target) {
                     storageMeterTarget_ = target;
                     storageMeterTargetValid_ = true;
-                    if (storage.available)
+                    if (storage.available) {
+                        const uint64_t margin =
+                            target == pipensx::install::InstallStorageTarget::Nand
+                                ? pipensx::install::kNandSafetyMarginBytes
+                                : 0;
                         sizeMeter_->setGameEstimate(
                             storage.totalBytes, storage.freeBytes,
-                            installBytes_, installBytes_ > storage.freeBytes,
+                            installBytes_,
+                            storage.freeBytes < installBytes_ + margin,
                             sizeExact_);
-                    else
+                    } else {
                         sizeMeter_->setUnavailable();
+                    }
                 } else {
                     storageRefreshPending_ = true;
                 }

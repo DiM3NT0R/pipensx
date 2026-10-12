@@ -417,8 +417,12 @@ private:
         for (const PreparedCatalogInstall& item : prepared_->items())
             selected += item.selected ? 1 : 0;
         const auto estimate = prepared_->selectedSpace();
+        const auto target = manager_->installTarget();
+        const uint64_t safetyMargin = estimate.packageFiles > 0
+            ? pipensx::installTargetSafetyMarginBytes(target)
+            : 0;
         const auto check = pipensx::assessTransferSpace(
-            estimate, storage_, packageStorage_);
+            estimate, storage_, packageStorage_, safetyMargin);
 
         std::string text = tr("pipensx/batch/ready_selected", selected);
         if (!prepared_->failures().empty())
@@ -484,10 +488,22 @@ private:
                 packageStorage_ = packageStorage;
                 storageReady_ = true;
                 refreshSummary();
+                const auto target = manager_->installTarget();
+                const uint64_t safetyMargin = estimate.packageFiles > 0
+                    ? pipensx::installTargetSafetyMarginBytes(target)
+                    : 0;
                 if (pipensx::assessTransferSpace(
-                        estimate, storage_, packageStorage_)
+                        estimate, storage_, packageStorage_, safetyMargin)
                         .status == InstallSpaceCheckStatus::Insufficient) {
-                    brls::Application::notify(tr("pipensx/batch/no_space"));
+                    if (target == pipensx::install::InstallStorageTarget::Nand &&
+                        estimate.packageFiles > 0) {
+                        auto* dialog = new brls::Dialog(
+                            tr("pipensx/torrent/nand_safety_margin_error"));
+                        dialog->addButton(tr("pipensx/common/ok"), [] {});
+                        dialog->open();
+                    } else {
+                        brls::Application::notify(tr("pipensx/batch/no_space"));
+                    }
                     return;
                 }
                 enqueueValidated();

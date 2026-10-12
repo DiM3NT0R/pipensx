@@ -230,6 +230,7 @@
     "no_files": "Nessun file trovato in questo torrent.",
     "select_one_file": "Seleziona almeno un file.",
     "no_space": "Spazio insufficiente per questa selezione.",
+    "nand_safety_margin_error": "Memoria di sistema insufficiente (NAND). Sono richiesti almeno 512 MB di spazio libero per il funzionamento sicuro del sistema. Seleziona l'installazione su scheda SD.",
     "added_installing": "Aggiunto. Installazione su {}...",
     "added": "Aggiunto ai download.",
     "port_detected": "Trovato contenuto extra. Scegli i file da installare.",

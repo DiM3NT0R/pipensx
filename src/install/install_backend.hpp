@@ -15,6 +15,10 @@ enum class InstallStorageTarget {
     Nand,
 };
 
+// Safe margin reserved in system memory (BuiltInUser / NAND) to prevent
+// Horizon OS panics or NCM allocation failures when partition space is low.
+inline constexpr uint64_t kNandSafetyMarginBytes = 512 * 1024 * 1024; // 512 MB
+
 class InstallBackend {
 public:
     // Diagnostic passes write fresh owned placeholders but never register

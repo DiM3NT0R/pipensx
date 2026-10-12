@@ -213,11 +213,22 @@ private:
                 packageStorage_ = packageStorage;
                 storageReady_ = true;
                 updateConfirm();
+                const auto target = manager_ ? manager_->installTarget()
+                    : pipensx::install::InstallStorageTarget::SdCard;
+                const uint64_t safetyMargin =
+                    pipensx::installTargetSafetyMarginBytes(target);
                 if (pipensx::assessTransferSpace(
-                        estimate, downloadStorage_, packageStorage_)
+                        estimate, downloadStorage_, packageStorage_, safetyMargin)
                         .status == InstallSpaceCheckStatus::Insufficient) {
-                    brls::Application::notify(
-                        tr("pipensx/torrent/no_space"));
+                    if (target == pipensx::install::InstallStorageTarget::Nand) {
+                        auto* dialog = new brls::Dialog(
+                            tr("pipensx/torrent/nand_safety_margin_error"));
+                        dialog->addButton(tr("pipensx/common/ok"), [] {});
+                        dialog->open();
+                    } else {
+                        brls::Application::notify(
+                            tr("pipensx/torrent/no_space"));
+                    }
                     return;
                 }
                 finishConfirm();
@@ -246,10 +257,12 @@ private:
                 ++installs;
         const auto estimate = pipensx::estimateInstallSpace(
             preview_, actions_, TransferMode::StreamInstall);
-        const auto check = pipensx::assessTransferSpace(
-            estimate, downloadStorage_, packageStorage_);
         const auto target = manager_ ? manager_->installTarget()
             : pipensx::install::InstallStorageTarget::SdCard;
+        const uint64_t safetyMargin =
+            pipensx::installTargetSafetyMarginBytes(target);
+        const auto check = pipensx::assessTransferSpace(
+            estimate, downloadStorage_, packageStorage_, safetyMargin);
         meter_->setHeader(storageMeterHeader(target));
         if (storageReady_ && packageStorage_.available)
             meter_->setEstimate(

@@ -1010,8 +1010,11 @@ public:
         }
         const auto estimate = pipensx::estimateInstallSpace(preview_, actions,
                                                             mode);
+        const uint64_t packageSafetyMargin = installs > 0
+            ? pipensx::installTargetSafetyMarginBytes(manager_->installTarget())
+            : 0;
         const auto check = pipensx::assessTransferSpace(
-            estimate, downloadStorage_, packageStorage_);
+            estimate, downloadStorage_, packageStorage_, packageSafetyMargin);
         // The meter caption right below already prints the byte totals, so the
         // summary stays on counts.
         std::string text = tr("pipensx/torrent/summary", selected,
@@ -1121,7 +1124,7 @@ public:
                     "event=storage duration_us=%llu",
                     static_cast<unsigned long long>(now_us() - startedUs));
             }
-            brls::sync([this, alive, estimate, mode, installs,
+            brls::sync([this, alive, target, estimate, mode, installs,
                         actions = std::move(actions), downloadStorage,
                         packageStorage]() mutable {
                 if (!alive->load() || finished_)
@@ -1131,10 +1134,22 @@ public:
                 packageStorage_ = packageStorage;
                 storageReady_ = true;
                 refreshSummary();
+                const uint64_t packageSafetyMargin = installs > 0
+                    ? pipensx::installTargetSafetyMarginBytes(target)
+                    : 0;
                 if (pipensx::assessTransferSpace(
-                        estimate, downloadStorage_, packageStorage_)
+                        estimate, downloadStorage_, packageStorage_,
+                        packageSafetyMargin)
                         .status == InstallSpaceCheckStatus::Insufficient) {
-                    brls::Application::notify(tr("pipensx/torrent/no_space"));
+                    if (target == pipensx::install::InstallStorageTarget::Nand &&
+                        installs > 0) {
+                        auto* dialog = new brls::Dialog(
+                            tr("pipensx/torrent/nand_safety_margin_error"));
+                        dialog->addButton(tr("pipensx/common/ok"), [] {});
+                        dialog->open();
+                    } else {
+                        brls::Application::notify(tr("pipensx/torrent/no_space"));
+                    }
                     return;
                 }
                 continueValidated(std::move(actions), mode, installs);

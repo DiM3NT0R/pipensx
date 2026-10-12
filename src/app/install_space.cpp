@@ -244,7 +244,8 @@ InstallSpaceCheck assessInstallSpace(
 InstallSpaceCheck assessTransferSpace(
     const InstallSpaceEstimate& estimate,
     const StorageSpaceSnapshot& downloadStorage,
-    const StorageSpaceSnapshot& packageStorage) {
+    const StorageSpaceSnapshot& packageStorage,
+    uint64_t packageSafetyMarginBytes) {
     InstallSpaceCheck result;
     if (estimate.overflow) {
         result.status = InstallSpaceCheckStatus::Insufficient;
@@ -264,6 +265,11 @@ InstallSpaceCheck assessTransferSpace(
             combined = std::numeric_limits<uint64_t>::max();
         else
             combined += estimate.packageBytes;
+        if (combined > std::numeric_limits<uint64_t>::max() -
+                           packageSafetyMarginBytes)
+            combined = std::numeric_limits<uint64_t>::max();
+        else
+            combined += packageSafetyMarginBytes;
         if (combined > downloadStorage.freeBytes) {
             result.status = InstallSpaceCheckStatus::Insufficient;
             result.shortfallBytes = combined - downloadStorage.freeBytes;
@@ -282,7 +288,15 @@ InstallSpaceCheck assessTransferSpace(
             shortfall = std::max(shortfall, need - storage.freeBytes);
     };
     checkPool(estimate.downloadBytes, downloadStorage);
-    checkPool(estimate.packageBytes, packageStorage);
+    uint64_t packageNeed = estimate.packageBytes;
+    if (packageNeed > 0 || packageSafetyMarginBytes > 0) {
+        if (packageNeed > std::numeric_limits<uint64_t>::max() -
+                              packageSafetyMarginBytes)
+            packageNeed = std::numeric_limits<uint64_t>::max();
+        else
+            packageNeed += packageSafetyMarginBytes;
+    }
+    checkPool(packageNeed, packageStorage);
     if (!checked &&
         ((estimate.downloadBytes > 0 && !downloadStorage.available) ||
          (estimate.packageBytes > 0 && !packageStorage.available)))

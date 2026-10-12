@@ -432,6 +432,19 @@ public:
             closeServices();
             return false;
         }
+        if (storageId_ == NcmStorageId_BuiltInUser) {
+            s64 freeSpace = 0;
+            const Result spaceRc =
+                ncmContentStorageGetFreeSpaceSize(&storage_, &freeSpace);
+            if (R_SUCCEEDED(spaceRc) && (freeSpace < 0 ||
+                static_cast<uint64_t>(freeSpace) < kNandSafetyMarginBytes)) {
+                error_ = "Not enough system memory (NAND). The system requires "
+                         "at least 512 MB of free space to operate safely. "
+                         "Please install to SD card.";
+                closeServices();
+                return false;
+            }
+        }
         active_ = true;
         packageName_ = packageName;
         log_msg("[install] package begin '%s'\n", packageName_.c_str());
@@ -508,26 +521,38 @@ public:
                 errorResult("Unable to query free content space", rc);
                 return false;
             }
+            const uint64_t safetyMargin =
+                storageId_ == NcmStorageId_BuiltInUser
+                    ? kNandSafetyMarginBytes
+                    : 0;
             if (freeSpace < 0 ||
                 static_cast<uint64_t>(freeSpace) <
-                    size + pendingPlaceholderBytes_) {
+                    size + pendingPlaceholderBytes_ + safetyMargin) {
                 char required[32];
                 char available[32];
-                const uint64_t totalNeed = size + pendingPlaceholderBytes_;
+                const uint64_t totalNeed =
+                    size + pendingPlaceholderBytes_ + safetyMargin;
                 fmt_bytes(required, sizeof(required), totalNeed);
                 fmt_bytes(available, sizeof(available),
                           freeSpace > 0 ? static_cast<uint64_t>(freeSpace) : 0);
-                const char* where = storageId_ == NcmStorageId_BuiltInUser
-                                        ? "system memory" : "SD card";
-                error_ = std::string("Not enough ") + where + " space for " +
-                         current_->name + ": need " + required + ", free " +
-                         available + ".";
+                if (storageId_ == NcmStorageId_BuiltInUser) {
+                    error_ = "Not enough system memory (NAND). The system requires "
+                             "at least 512 MB of free space to operate safely (need " +
+                             std::string(required) + ", free " + available +
+                             "). Please install to SD card.";
+                } else {
+                    const char* where = "SD card";
+                    error_ = std::string("Not enough ") + where + " space for " +
+                             current_->name + ": need " + required + ", free " +
+                             available + ".";
+                }
                 log_msg("[install] insufficient space name='%s' need=%llu "
-                        "pending=%llu free=%lld\n",
+                        "pending=%llu margin=%llu free=%lld\n",
                         current_->name.c_str(),
                         static_cast<unsigned long long>(size),
                         static_cast<unsigned long long>(
                             pendingPlaceholderBytes_),
+                        static_cast<unsigned long long>(safetyMargin),
                         static_cast<long long>(freeSpace));
                 return false;
             }
@@ -1579,22 +1604,32 @@ private:
                     current_->size > current_->written
                         ? current_->size - current_->written
                         : 0;
-                if (static_cast<uint64_t>(freeSpace) < remaining) {
+                const uint64_t safetyMargin =
+                    storageId_ == NcmStorageId_BuiltInUser
+                        ? kNandSafetyMarginBytes
+                        : 0;
+                if (static_cast<uint64_t>(freeSpace) < remaining + safetyMargin) {
                     char required[32];
                     char available[32];
-                    fmt_bytes(required, sizeof(required), remaining);
+                    fmt_bytes(required, sizeof(required), remaining + safetyMargin);
                     fmt_bytes(available, sizeof(available),
                               static_cast<uint64_t>(freeSpace));
-                    const char* where =
-                        storageId_ == NcmStorageId_BuiltInUser
-                            ? "system memory" : "SD card";
-                    error_ = std::string("Not enough ") + where + " space for " +
-                             current_->name + ": need " + required + ", free " +
-                             available + ".";
+                    if (storageId_ == NcmStorageId_BuiltInUser) {
+                        error_ = "Not enough system memory (NAND). The system requires "
+                                 "at least 512 MB of free space to operate safely (need " +
+                                 std::string(required) + ", free " + available +
+                                 "). Please install to SD card.";
+                    } else {
+                        const char* where = "SD card";
+                        error_ = std::string("Not enough ") + where + " space for " +
+                                 current_->name + ": need " + required + ", free " +
+                                 available + ".";
+                    }
                     log_msg("[install] placeholder error: %s offset=%llu "
-                            "chunk=%zu free=%lld rc=0x%08x\n",
+                            "chunk=%zu margin=%llu free=%lld rc=0x%08x\n",
                             error_.c_str(),
                             static_cast<unsigned long long>(offset), chunk,
+                            static_cast<unsigned long long>(safetyMargin),
                             static_cast<long long>(freeSpace), rc);
                     return;
                 }

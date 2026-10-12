@@ -261,6 +261,52 @@ int main() {
         assert(check.status == InstallSpaceCheckStatus::Enough);
     }
 
+    {
+        // NAND safety margin guard (P0-2)
+        assert(pipensx::install::kNandSafetyMarginBytes == 512ULL * 1024 * 1024);
+        assert(installTargetSafetyMarginBytes(
+                   pipensx::install::InstallStorageTarget::Nand) ==
+               pipensx::install::kNandSafetyMarginBytes);
+        assert(installTargetSafetyMarginBytes(
+                   pipensx::install::InstallStorageTarget::SdCard) == 0);
+
+        InstallSpaceEstimate estimate;
+        estimate.downloadBytes = 0;
+        estimate.packageBytes = 1000;
+        estimate.requiredBytes = 1000;
+        StorageSpaceSnapshot sd;
+        sd.available = true;
+        sd.freeBytes = 10000;
+        StorageSpaceSnapshot nand;
+        nand.available = true;
+
+        // Exactly packageBytes free: enough without margin, insufficient with margin
+        nand.freeBytes = 1000;
+        InstallSpaceCheck checkWithoutMargin =
+            assessTransferSpace(estimate, sd, nand, 0);
+        assert(checkWithoutMargin.status == InstallSpaceCheckStatus::Enough);
+
+        InstallSpaceCheck checkWithMargin = assessTransferSpace(
+            estimate, sd, nand, pipensx::install::kNandSafetyMarginBytes);
+        assert(checkWithMargin.status == InstallSpaceCheckStatus::Insufficient);
+        assert(checkWithMargin.shortfallBytes ==
+               pipensx::install::kNandSafetyMarginBytes);
+
+        // Package + margin - 1 byte -> shortfall of 1 byte
+        nand.freeBytes = 1000 + pipensx::install::kNandSafetyMarginBytes - 1;
+        checkWithMargin = assessTransferSpace(
+            estimate, sd, nand, pipensx::install::kNandSafetyMarginBytes);
+        assert(checkWithMargin.status == InstallSpaceCheckStatus::Insufficient);
+        assert(checkWithMargin.shortfallBytes == 1);
+
+        // Package + margin -> exactly enough
+        nand.freeBytes = 1000 + pipensx::install::kNandSafetyMarginBytes;
+        checkWithMargin = assessTransferSpace(
+            estimate, sd, nand, pipensx::install::kNandSafetyMarginBytes);
+        assert(checkWithMargin.status == InstallSpaceCheckStatus::Enough);
+        assert(checkWithMargin.shortfallBytes == 0);
+    }
+
     // catalogEntryFitsFreeSpace: the catalog "fits on SD" filter must never
     // hide an entry it cannot judge.
     {

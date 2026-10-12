@@ -67,13 +67,23 @@ InstallSpaceCheck assessInstallSpace(
     const InstallSpaceEstimate& estimate,
     const StorageSpaceSnapshot& storage);
 
+inline uint64_t installTargetSafetyMarginBytes(
+    install::InstallStorageTarget target) {
+    return target == install::InstallStorageTarget::Nand
+        ? install::kNandSafetyMarginBytes
+        : 0;
+}
+
 // Gate downloadBytes against downloadStorage and packageBytes against
 // packageStorage (NAND vs SD when install location differs). Either pool can be
 // unavailable without failing the other when that pool needs 0 bytes.
+// packageSafetyMarginBytes enforces extra headroom (e.g. kNandSafetyMarginBytes)
+// for target storage to protect system integrity.
 InstallSpaceCheck assessTransferSpace(
     const InstallSpaceEstimate& estimate,
     const StorageSpaceSnapshot& downloadStorage,
-    const StorageSpaceSnapshot& packageStorage);
+    const StorageSpaceSnapshot& packageStorage,
+    uint64_t packageSafetyMarginBytes = 0);
 
 // Coarse guard for the catalog's "fits on SD" filter. The catalog size is the
 // download size, not the install size (NSZ packages expand on commit), hence

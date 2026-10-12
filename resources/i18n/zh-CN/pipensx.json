@@ -230,6 +230,7 @@
     "no_files": "此种子中未找到文件。",
     "select_one_file": "请至少选择一个文件。",
     "no_space": "可用空间不足，无法完成此选择。",
+    "nand_safety_margin_error": "系统内存（NAND）不足。系统需要至少 512 MB 的可用空间以确保安全运行。请选择安装到 SD 卡。",
     "added_installing": "已添加。正在安装到 {}…",
     "added": "已添加到下载列表。",
     "port_detected": "发现附加内容。请选择要安装的文件。",

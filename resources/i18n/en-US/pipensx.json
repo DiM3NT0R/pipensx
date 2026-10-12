@@ -230,6 +230,7 @@
     "no_files": "No files found in this torrent.",
     "select_one_file": "Select at least one file.",
     "no_space": "Not enough free space for this selection.",
+    "nand_safety_margin_error": "Not enough system memory (NAND). The system requires at least 512 MB of free space to operate safely. Please choose SD card for installation.",
     "added_installing": "Added. Installing to {}...",
     "added": "Added to downloads.",
     "port_detected": "Extra content found. Choose the files you want to install.",
