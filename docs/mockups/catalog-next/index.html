@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#101416" />
+    <title>pipensx — следующий каталог</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <a class="brand" href="#discover" aria-label="pipensx, главная"
+          ><span class="brand-symbol">p<span>↗</span></span
+          ><span>pipensx<small>YOUR NEXT PLAY</small></span></a
+        >
+        <div class="workspace">
+          <span class="console-icon">▣</span>
+          <div>
+            Моя Switch<small
+              ><i class="status-dot"></i> Подключена · демо</small
+            >
+          </div>
+          <span class="subtle">⌄</span>
+        </div>
+        <div class="nav-label">КОЛЛЕКЦИЯ</div>
+        <nav aria-label="Основная навигация">
+          <button data-page="discover" class="nav-item active">
+            <span data-icon="compass"></span>Обзор
+          </button>
+          <button data-page="catalog" class="nav-item">
+            <span data-icon="grid"></span>Все игры<span class="nav-count"
+              >8</span
+            >
+          </button>
+          <button data-page="library" class="nav-item">
+            <span data-icon="library"></span>Моя библиотека<span
+              class="nav-count"
+              id="library-count"
+              >3</span
+            >
+          </button>
+          <button data-page="favorites" class="nav-item">
+            <span data-icon="heart"></span>Избранное
+          </button>
+          <button data-page="downloads" class="nav-item">
+            <span data-icon="download"></span>Загрузки<span
+              class="nav-count"
+              id="queue-count"
+              >2</span
+            >
+          </button>
+        </nav>
+        <div class="nav-label second-label">ЭКОСИСТЕМА</div>
+        <nav aria-label="Источники и каталог">
+          <button data-page="homebrew" class="nav-item">
+            <span data-icon="box"></span>Homebrew
+          </button>
+          <button data-page="sources" class="nav-item">
+            <span data-icon="layers"></span>Источники
+          </button>
+          <button data-page="pipeline" class="nav-item">
+            <span data-icon="git"></span>Catalog Studio<span class="beta"
+              >LAB</span
+            >
+          </button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="storage-label">
+            <span data-icon="disk"></span>microSD
+            <strong id="disk-free">86.4 ГБ свободно</strong>
+          </div>
+          <div class="storage-track"><span></span></div>
+          <div class="storage-meta">
+            <span>169.6 ГБ занято</span><span>256 ГБ</span>
+          </div>
+          <button class="profile" id="connection-button">
+            <span class="avatar">P</span
+            ><span
+              >Локальное подключение<small
+                >Web Companion · PIN защищён</small
+              ></span
+            ><span data-icon="settings"></span>
+          </button>
+        </div>
+      </aside>
+      <div class="shell">
+        <header class="topbar">
+          <button
+            class="mobile-menu icon-button"
+            id="menu-button"
+            aria-label="Открыть меню"
+          >
+            <span data-icon="menu"></span>
+          </button>
+          <label class="global-search"
+            ><span data-icon="search"></span
+            ><input
+              id="search"
+              type="search"
+              placeholder="Игра, студия или настроение…"
+              aria-label="Поиск по каталогу"
+            /><kbd>/</kbd></label
+          >
+          <div class="topbar-actions">
+            <span class="demo-label">ИНТЕРАКТИВНЫЙ КОНЦЕПТ</span
+            ><button
+              class="icon-button"
+              id="notifications-button"
+              aria-label="Уведомления"
+            >
+              <span data-icon="bell"></span><i></i></button
+            ><span class="avatar small">P</span>
+          </div>
+        </header>
+        <div class="content-layout">
+          <main id="main" tabindex="-1"></main>
+          <aside class="activity" aria-label="Состояние консоли">
+            <div class="activity-heading">
+              На вашей Switch <i class="status-dot"></i>
+            </div>
+            <div class="device-art">
+              <span class="joy left"></span>
+              <div class="device-screen">
+                <span class="brand-symbol mini">p<span>↗</span></span>
+              </div>
+              <span class="joy right"></span>
+            </div>
+            <div class="device-name">
+              Nintendo Switch OLED<small>Домашняя сеть · 192.168.1.42</small>
+            </div>
+            <div class="device-stats">
+              <span>WI-FI<strong>5 GHz</strong></span
+              ><span
+                >БАТАРЕЯ<strong>84% <span class="lime">ϟ</span></strong></span
+              ><span>ИСТОЧНИК<strong>TorBox</strong></span>
+            </div>
+            <div class="divider"></div>
+            <div class="section-mini">
+              <h3>Сейчас в очереди</h3>
+              <button class="text-button" data-page="downloads">
+                Все <span>↗</span>
+              </button>
+            </div>
+            <div id="mini-queue"></div>
+            <div class="hint-card">
+              <span data-icon="shield"></span>
+              <div>
+                Можно продолжить позже
+                <p>
+                  Сохранённые данные проверяются. Установленные пакеты не
+                  скачиваются повторно.
+                </p>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="section-mini">
+              <h3>Обновления</h3>
+              <span class="counter">1</span>
+            </div>
+            <button class="update-item" id="update-button">
+              <img src="assets/dead.jpg" alt="" /><span
+                >Dead Cells<small>1.24 → 1.25 · 184 МБ</small></span
+              ><span class="circle-arrow">↑</span>
+            </button>
+            <div class="catalog-status">
+              <span data-icon="check"></span>
+              <div>
+                Каталог готов к игре<small id="catalog-time"
+                  >Снимок от 30 сентября, 10:17</small
+                >
+              </div>
+            </div>
+            <p class="demo-note">
+              Состояние консоли, версии, размеры и установки в этом макете —
+              демонстрационные.
+            </p>
+          </aside>
+        </div>
+      </div>
+    </div>
+    <dialog id="game-dialog" aria-labelledby="dialog-title"></dialog>
+    <dialog id="info-dialog" class="info-dialog"></dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
