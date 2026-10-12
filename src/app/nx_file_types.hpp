@@ -2,6 +2,7 @@
 
 #include <cctype>
 #include <cstdint>
+#include <cstring>
 #include <string>
 
 namespace pipensx {
@@ -276,6 +277,47 @@ inline bool isCompressedArchiveName(const std::string& name) {
     return isPortArchiveName(name) || isRarName(name);
 }
 
+inline bool isFilenameWordChar(char c) {
+    const unsigned char uc = static_cast<unsigned char>(c);
+    return (uc >= 'a' && uc <= 'z') ||
+           (uc >= 'A' && uc <= 'Z') ||
+           (uc >= '0' && uc <= '9');
+}
+
+// Delimited word check for filename tokens. Prevents "Dispatch" or "Patchwork"
+// from falsely matching "patch", "Modern Combat" from matching "mod", etc.
+inline bool containsDelimitedWord(const std::string& text,
+                                  const char* keyword,
+                                  size_t kwLen) {
+    if (kwLen == 0 || text.size() < kwLen)
+        return false;
+    size_t pos = 0;
+    while ((pos = text.find(keyword, pos)) != std::string::npos) {
+        const bool startOk = (pos == 0) || !isFilenameWordChar(text[pos - 1]);
+        if (startOk) {
+            const size_t endPos = pos + kwLen;
+            if (endPos == text.size() || !isFilenameWordChar(text[endPos]))
+                return true;
+            // Handle English plurals: "updates", "patches", "mods"
+            if (kwLen == 6 && std::memcmp(keyword, "update", 6) == 0 &&
+                text[endPos] == 's' &&
+                (endPos + 1 == text.size() || !isFilenameWordChar(text[endPos + 1])))
+                return true;
+            if (kwLen == 5 && std::memcmp(keyword, "patch", 5) == 0 &&
+                endPos + 1 < text.size() &&
+                text[endPos] == 'e' && text[endPos + 1] == 's' &&
+                (endPos + 2 == text.size() || !isFilenameWordChar(text[endPos + 2])))
+                return true;
+            if (kwLen == 3 && std::memcmp(keyword, "mod", 3) == 0 &&
+                text[endPos] == 's' &&
+                (endPos + 1 == text.size() || !isFilenameWordChar(text[endPos + 1])))
+                return true;
+        }
+        pos += 1;
+    }
+    return false;
+}
+
 // Patch NSPs are tagged [vN] with N>0, named update/patch, or carry the
 // …800 title id. Lower rank installs first so a dump that lists the patch
 // before the [v0] base still commits the application package first.
@@ -285,8 +327,15 @@ inline bool pathLooksLikeUpdatePackage(const std::string& path) {
     for (size_t i = 0; i < path.size(); ++i)
         lower[i] = static_cast<char>(
             std::tolower(static_cast<unsigned char>(path[i])));
-    if (lower.find("update") != std::string::npos ||
-        lower.find("patch") != std::string::npos)
+    // A package tagged [v0] is the base application or DLC, never an update.
+    for (size_t i = 0; i + 3 < lower.size(); ++i) {
+        if (lower[i] == '[' && lower[i + 1] == 'v' &&
+            lower[i + 2] == '0' && lower[i + 3] == ']')
+            return false;
+    }
+    if (containsDelimitedWord(lower, "update", 6) ||
+        containsDelimitedWord(lower, "patch", 5) ||
+        containsDelimitedWord(lower, "upd", 3))
         return true;
     for (size_t i = 0; i + 2 < lower.size(); ++i) {
         if (lower[i] == '[' && lower[i + 1] == 'v' &&

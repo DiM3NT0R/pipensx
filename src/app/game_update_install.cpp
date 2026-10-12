@@ -55,14 +55,18 @@ bool fileVersionTag(const std::string& path, uint64_t& value) {
 
 bool isUpdateFile(const std::string& path) {
     const size_t slash = path.find_last_of("/\\");
-    std::string lower = slash == std::string::npos ? path : path.substr(slash + 1);
+    const std::string filename = slash == std::string::npos ? path : path.substr(slash + 1);
+    uint64_t tag = 0;
+    if (fileVersionTag(filename, tag) && tag == 0)
+        return false;
+    std::string lower = filename;
     std::transform(lower.begin(), lower.end(), lower.begin(),
                    [](unsigned char c) {
                        return static_cast<char>(std::tolower(c));
                    });
-    if (lower.find("update") != std::string::npos ||
-        lower.find("patch") != std::string::npos ||
-        lower.find("upd") != std::string::npos)
+    if (containsDelimitedWord(lower, "update", 6) ||
+        containsDelimitedWord(lower, "patch", 5) ||
+        containsDelimitedWord(lower, "upd", 3))
         return true;
     // "[vN]" with a non-zero N — release bundles tag the bundled update
     // version in the file name, and the base package usually carries "[v0]".
@@ -150,7 +154,7 @@ bool isLikelyModPackage(const std::string& path) {
                    [](unsigned char c) {
                        return static_cast<char>(std::tolower(c));
                    });
-    return lower.find("mod") != std::string::npos ||
+    return containsDelimitedWord(lower, "mod", 3) ||
            lower.find("exefs") != std::string::npos ||
            lower.find("romfs") != std::string::npos;
 }

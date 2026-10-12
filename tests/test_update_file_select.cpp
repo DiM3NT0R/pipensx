@@ -802,7 +802,48 @@ void testPackageInstallRank() {
                "Minecraft [0100D71004694000][v0].nsp") == 0);
     assert(packageInstallRank(
                "Minecraft [0100D71004694800][v10420224].nsp") == 1);
+    assert(packageInstallRank(
+               "Dispatch [01008BA02525A000][v0].nsp") == 0);
+    assert(packageInstallRank(
+               "Dispatch [01008BA02525A800][v589824].nsp") == 1);
+    assert(packageInstallRank(
+               "Dispatch [DLC HR Violations Pack] [01008BA02525B003][v0].nsp") == 0);
     assert(packageInstallRank("readme.txt") == 2);
+}
+
+// Regression: a game whose title embeds "patch" as a substring (e.g. "Dispatch")
+// must not have its base package skipped by smart install or misranked as an update.
+void testGameTitleContainingPatchWordNotTreatedAsUpdate() {
+    TorrentPreview preview;
+    preview.files = {
+        package("Dispatch [01008BA02525A000][v0].nsp", 6775089740ull),
+        package("Dispatch [01008BA02525A800][v589824].nsp", 4973543501ull),
+        package("Dispatch [DLC HR Violations Pack] [01008BA02525B003][v0].nsp", 2890916ull),
+        plain("Russian Voice Mod/ReadMe_Rus.txt"),
+        plain("Russian Voice Mod/atmosphere/contents/01008BA02525A000/romfs/voice.bank"),
+    };
+    expectSmartActions(preview, false, "", "589824", "01008BA02525A000", {
+        static_cast<uint8_t>(FileAction::Install),
+        static_cast<uint8_t>(FileAction::Install),
+        static_cast<uint8_t>(FileAction::Install),
+        static_cast<uint8_t>(FileAction::Skip),
+        static_cast<uint8_t>(FileAction::Skip),
+    });
+}
+
+// A game title embedding "mod" (e.g. "Modern Combat") must not be classified as a mod.
+void testGameTitleContainingModWordNotTreatedAsMod() {
+    TorrentPreview preview;
+    preview.files = {
+        package("Modern Combat Blackout [0100123400000000][v0].nsp"),
+        package("Modern Combat Blackout [0100123400000800][v131072].nsp"),
+        package("Mods/Cheat.nsp"),
+    };
+    expectSmartActions(preview, true, "0", "131072", "0100123400000000", {
+        static_cast<uint8_t>(FileAction::Skip),
+        static_cast<uint8_t>(FileAction::Install),
+        static_cast<uint8_t>(FileAction::Skip),
+    });
 }
 
 } // namespace
@@ -858,6 +899,8 @@ int main() {
     testLayeredFsModDir();
     testNacpDisplayVersionString();
     testPackageInstallRank();
+    testGameTitleContainingPatchWordNotTreatedAsUpdate();
+    testGameTitleContainingModWordNotTreatedAsMod();
     std::puts("update file selection tests passed");
     return 0;
 }
