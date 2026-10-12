@@ -85,6 +85,18 @@ using RangeFetcher = std::function<bool(
     const std::function<bool()>& cancelled,
     std::string& error)>;
 
+// Split download resume state helpers (DBI FAT32 multi-part archive format)
+std::string splitResumePath(const std::string& localPath);
+bool splitResumeExists(const std::string& localPath);
+bool loadSplitResume(const std::string& localPath, uint64_t expected,
+                     uint64_t& offset);
+bool saveSplitResume(const std::string& localPath, uint64_t offset,
+                     std::string& error);
+void removeSplitResume(const std::string& localPath);
+bool splitDownloadOffset(const std::string& localPath, uint64_t expected,
+                         uint64_t& offset, std::string& error,
+                         bool* restarted = nullptr);
+
 class DebridTransfer {
 public:
     explicit DebridTransfer(DebridProvider& provider,

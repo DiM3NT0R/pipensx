@@ -258,19 +258,38 @@ bool needsSplitDownload(uint64_t fileBytes, bool forceSplit = false) {
 #endif
 }
 
+} // namespace
+
 std::string splitResumePath(const std::string& localPath) {
     return localPath + ".pipensx-partial";
 }
 
 bool splitResumeExists(const std::string& localPath) {
-    return access(splitResumePath(localPath).c_str(), F_OK) == 0;
+    const std::string path = splitResumePath(localPath);
+    return access(path.c_str(), F_OK) == 0 ||
+           access((path + ".tmp").c_str(), F_OK) == 0;
 }
 
 bool loadSplitResume(const std::string& localPath, uint64_t expected,
                      uint64_t& offset) {
-    FILE* file = std::fopen(splitResumePath(localPath).c_str(), "rb");
-    if (!file)
-        return false;
+    const std::string path = splitResumePath(localPath);
+    const std::string tmp = path + ".tmp";
+    FILE* file = std::fopen(path.c_str(), "rb");
+    if (!file) {
+        file = std::fopen(tmp.c_str(), "rb");
+        if (!file)
+            return false;
+        unsigned long long parsed = 0;
+        const bool ok = std::fscanf(file, "%llu", &parsed) == 1 &&
+                        parsed <= expected;
+        std::fclose(file);
+        if (ok) {
+            std::remove(path.c_str());
+            std::rename(tmp.c_str(), path.c_str());
+            offset = static_cast<uint64_t>(parsed);
+        }
+        return ok;
+    }
     unsigned long long parsed = 0;
     const bool ok = std::fscanf(file, "%llu", &parsed) == 1 &&
                     parsed <= expected;
@@ -280,40 +299,58 @@ bool loadSplitResume(const std::string& localPath, uint64_t expected,
     return ok;
 }
 
+void removeSplitResume(const std::string& localPath) {
+    const std::string path = splitResumePath(localPath);
+    std::remove(path.c_str());
+    std::remove((path + ".tmp").c_str());
+}
+
 bool saveSplitResume(const std::string& localPath, uint64_t offset,
                      std::string& error) {
     const std::string path = splitResumePath(localPath);
-    // fsdev rename does not replace an existing destination on Switch. Keep
-    // the marker inode in place and rewrite its tiny payload instead. If the
-    // console loses power during this write, an empty/partial marker remains
-    // and loadSplitResume rejects it rather than mistaking the split folder
-    // for a completed download.
-    FILE* file = std::fopen(path.c_str(), "wb");
+    const std::string tmp = path + ".tmp";
+    // Atomic durable write: write to temp file first, flush, best-effort fsync,
+    // remove target (FAT32 rename fails with EEXIST if destination exists),
+    // and rename over target.
+    std::remove(tmp.c_str());
+    FILE* file = std::fopen(tmp.c_str(), "wb");
     if (!file) {
         error = std::string("Unable to create download resume state: ") +
-                std::strerror(errno);
+                std::strerror(errno ? errno : EIO);
         return false;
     }
     bool ok = std::fprintf(file, "%llu\n",
                            static_cast<unsigned long long>(offset)) > 0;
-    int savedErrno = ok ? 0 : errno;
     if (ok && std::fflush(file) != 0) {
         ok = false;
-        savedErrno = errno;
     }
-    if (ok && fsync(fileno(file)) != 0) {
-        ok = false;
-        savedErrno = errno;
+#if !defined(_WIN32)
+    // Best effort: some FAT32 paths reject fsync on Switch (e.g. EINVAL).
+    if (ok) {
+        fsync(fileno(file));
     }
-    if (std::fclose(file) != 0 && ok) {
+#endif
+    if (std::fclose(file) != 0) {
         ok = false;
-        savedErrno = errno;
     }
     if (!ok) {
+        const int savedErrno = errno ? errno : EIO;
+        std::remove(tmp.c_str());
         error = std::string("Unable to save download resume state: ") +
-                std::strerror(savedErrno ? savedErrno : EIO);
+                std::strerror(savedErrno);
+        return false;
     }
-    return ok;
+    // sdmc:/ FAT32 rename does not overwrite: std::rename over an existing
+    // destination fails with EEXIST ("File exists"). Remove destination first.
+    std::remove(path.c_str());
+    if (std::rename(tmp.c_str(), path.c_str()) != 0) {
+        const int savedErrno = errno ? errno : EIO;
+        std::remove(tmp.c_str());
+        error = std::string("Unable to save download resume state: ") +
+                std::strerror(savedErrno);
+        return false;
+    }
+    return true;
 }
 
 // A pre-fix build appended a >4 GiB debrid file as one FAT32 file and stopped
@@ -321,7 +358,7 @@ bool saveSplitResume(const std::string& localPath, uint64_t offset,
 // fixed-size split format, so discard that one legacy partial and restart it.
 bool splitDownloadOffset(const std::string& localPath, uint64_t expected,
                          uint64_t& offset, std::string& error,
-                         bool* restarted = nullptr) {
+                         bool* restarted) {
     offset = 0;
     if (restarted)
         *restarted = false;
@@ -341,7 +378,7 @@ bool splitDownloadOffset(const std::string& localPath, uint64_t expected,
         }
         if (outputExists && S_ISREG(st.st_mode)) {
             if (static_cast<uint64_t>(st.st_size) == expected) {
-                std::remove(splitResumePath(localPath).c_str());
+                removeSplitResume(localPath);
                 offset = expected;
                 return true;
             }
@@ -384,6 +421,8 @@ bool splitDownloadOffset(const std::string& localPath, uint64_t expected,
             std::strerror(errno);
     return false;
 }
+
+namespace {
 
 std::string sanitizeRelative(const std::string& name,
                              const std::string& torrentName, bool& ok) {
@@ -1481,7 +1520,7 @@ Step fetchSplitDownload(RunContext& ctx, const std::string& url,
     if (offset == fileBytes) {
         storage_finalize(output);
         storage_close(output);
-        std::remove(splitResumePath(localPath).c_str());
+        removeSplitResume(localPath);
         return Step::Ok;
     }
 
@@ -1609,7 +1648,7 @@ Step fetchSplitDownload(RunContext& ctx, const std::string& url,
         return Step::Failed;
     }
 
-    std::remove(splitResumePath(localPath).c_str());
+    removeSplitResume(localPath);
     return Step::Ok;
 }
 

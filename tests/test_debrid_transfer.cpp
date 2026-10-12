@@ -2621,6 +2621,106 @@ void testBuildRichMagnet() {
     std::puts("buildRichMagnet ok");
 }
 
+void testSplitResumeSaveAndOverwriteCycle() {
+    const std::string root = "/tmp/pipensx-split-resume-test";
+    system(("rm -rf " + root).c_str());
+    mkdir(root.c_str(), 0755);
+    const std::string target = root + "/game.7z";
+
+    std::string error;
+    // Initial write at 0 bytes
+    assert(!splitResumeExists(target));
+    assert(saveSplitResume(target, 0, error));
+    assert(splitResumeExists(target));
+    uint64_t offset = 999;
+    assert(loadSplitResume(target, 10000000, offset));
+    assert(offset == 0);
+
+    // Overwrite cycle: simulate multiple 4 MiB checkpoints
+    for (uint64_t ckpt = 4 * 1024 * 1024; ckpt <= 20 * 1024 * 1024;
+         ckpt += 4 * 1024 * 1024) {
+        assert(saveSplitResume(target, ckpt, error));
+        assert(loadSplitResume(target, 50 * 1024 * 1024, offset));
+        assert(offset == ckpt);
+        // Ensure no leftover .tmp file
+        assert(access((splitResumePath(target) + ".tmp").c_str(), F_OK) != 0);
+    }
+
+    // Reject marker if parsed offset exceeds expected size
+    assert(!loadSplitResume(target, 10 * 1024 * 1024, offset));
+
+    // Cleanup
+    removeSplitResume(target);
+    assert(!splitResumeExists(target));
+    system(("rm -rf " + root).c_str());
+    std::puts("testSplitResumeSaveAndOverwriteCycle ok");
+}
+
+void testSplitResumeTmpCrashRecovery() {
+    const std::string root = "/tmp/pipensx-split-resume-crash-test";
+    system(("rm -rf " + root).c_str());
+    mkdir(root.c_str(), 0755);
+    const std::string target = root + "/archive.7z";
+    const std::string marker = splitResumePath(target);
+    const std::string tmp = marker + ".tmp";
+
+    // Simulate an interrupted rename where target was deleted and only .tmp survived
+    std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+    out << "8388608\n";
+    out.close();
+
+    assert(splitResumeExists(target));
+    uint64_t offset = 0;
+    assert(loadSplitResume(target, 20000000, offset));
+    assert(offset == 8388608);
+    // After recovery, marker should exist and .tmp should be moved to marker
+    assert(access(marker.c_str(), F_OK) == 0);
+    assert(access(tmp.c_str(), F_OK) != 0);
+
+    removeSplitResume(target);
+    assert(!splitResumeExists(target));
+    system(("rm -rf " + root).c_str());
+    std::puts("testSplitResumeTmpCrashRecovery ok");
+}
+
+void testSplitDownloadOffsetBehaviors() {
+    const std::string root = "/tmp/pipensx-split-offset-test";
+    system(("rm -rf " + root).c_str());
+    mkdir(root.c_str(), 0755);
+    const std::string target = root + "/game.7z";
+    std::string error;
+
+    // 1. Nothing on disk -> offset 0
+    uint64_t offset = 999;
+    assert(splitDownloadOffset(target, 1000, offset, error));
+    assert(offset == 0);
+
+    // 2. Marker present -> offset loaded from marker
+    assert(saveSplitResume(target, 500, error));
+    mkdir(target.c_str(), 0755); // target is a split folder
+    assert(splitDownloadOffset(target, 1000, offset, error));
+    assert(offset == 500);
+
+    // 3. Complete split folder (no marker, directory exists) -> offset = expected
+    removeSplitResume(target);
+    assert(splitDownloadOffset(target, 1000, offset, error));
+    assert(offset == 1000);
+
+    // 4. Incomplete legacy unsplit file -> restarted from 0
+    system(("rm -rf " + root).c_str());
+    mkdir(root.c_str(), 0755);
+    std::ofstream legacy(target, std::ios::binary | std::ios::trunc);
+    legacy << "partial-data";
+    legacy.close();
+    bool restarted = false;
+    assert(splitDownloadOffset(target, 50000, offset, error, &restarted));
+    assert(offset == 0);
+    assert(restarted);
+
+    system(("rm -rf " + root).c_str());
+    std::puts("testSplitDownloadOffsetBehaviors ok");
+}
+
 } // namespace
 
 int main() {
@@ -2695,6 +2795,9 @@ int main() {
     testRealdebridInstallsBaseBeforeUpdate(false, false, true);
     testFilesResolvedStripsLeadingSlash();
     testBuildRichMagnet();
+    testSplitResumeSaveAndOverwriteCycle();
+    testSplitResumeTmpCrashRecovery();
+    testSplitDownloadOffsetBehaviors();
     std::printf("test_debrid_transfer ok\n");
     curl_global_cleanup();
     return 0;
