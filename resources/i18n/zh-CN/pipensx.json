@@ -253,7 +253,9 @@
     "layout_layered": "检测到 Atmosphere LayeredFS 负载。文件将移动到 SD 根目录；安装后无法继续做种或重新校验此种子。",
     "layout_missing": "未找到 switch/ 文件夹或 switch.zip / switch.7z。pipensx 将下载这些文件；仍可能需要额外设置。",
     "queued": "已添加。下载完成后会将文件复制到 /switch。",
-    "copy_skipped": "下载已完成。安装此移植仍可能需要额外设置。"
+    "copy_skipped": "下载已完成。安装此移植仍可能需要额外设置。",
+    "how_to_install": "如何安装",
+    "notice_dialog_body": "这不是标准的 Switch 游戏，而是移植版或压缩包。文件已保存至下载目录。若要运行，请将其解压到 SD 卡根目录或使用 DBI。"
   },
   "downloads": {
     "import": "导入种子",

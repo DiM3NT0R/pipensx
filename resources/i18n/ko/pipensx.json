@@ -253,7 +253,9 @@
     "layout_layered": "Atmosphere LayeredFS 페이로드가 감지되었습니다. 파일이 SD 루트로 이동되므로 설치 후에는 이 토렌트를 시딩하거나 다시 검사할 수 없습니다.",
     "layout_missing": "switch/ 폴더나 switch.zip / switch.7z를 찾지 못했습니다. pipensx는 파일을 다운로드만 하며, 추가 설정이 필요할 수 있습니다.",
     "queued": "추가되었습니다. 다운로드가 끝나면 포트 페이로드를 배포합니다.",
-    "copy_skipped": "다운로드가 끝났습니다. 이 포트를 설치하려면 추가 설정이 필요할 수 있습니다."
+    "copy_skipped": "다운로드가 끝났습니다. 이 포트를 설치하려면 추가 설정이 필요할 수 있습니다.",
+    "how_to_install": "설치 방법",
+    "notice_dialog_body": "이것은 표준 Switch 게임이 아닌 포트/압축 파일입니다. 파일은 다운로드 폴더에 저장되었습니다. 실행하려면 SD 카드의 루트에 압축을 풀거나 DBI를 사용하세요."
   },
   "downloads": {
     "import": "토렌트 가져오기",

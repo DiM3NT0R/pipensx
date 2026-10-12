@@ -264,6 +264,25 @@ bool taskReadyForSwitchDeploy(const DownloadTask& task) {
            task.mode == TransferMode::PortInstall;
 }
 
+bool taskHasPortOrArchiveFiles(const std::string& appRoot,
+                               const DownloadTask& task) {
+    if (task.mode == TransferMode::PortInstall)
+        return true;
+    TaskFileManifest manifest;
+    std::string error;
+    if (loadTaskFileManifest(appRoot, task.id, manifest, error) &&
+        !manifest.files.empty()) {
+        for (const auto& file : manifest.files) {
+            if (hasNroExtension(file.logicalPath) ||
+                isCompressedArchiveName(file.logicalPath) ||
+                isPortPayloadName(file.logicalPath))
+                return true;
+        }
+        return false;
+    }
+    return task.mode == TransferMode::DownloadOnly;
+}
+
 bool taskFilePathIsSafe(const std::string& path) {
     if (path.empty() || path.size() >= kMaxPathBytes || path.front() == '/' ||
         path.front() == '\\' || path.back() == '/')

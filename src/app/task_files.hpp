@@ -91,6 +91,8 @@ bool refreshTorrentManifestLocalPaths(const std::string& appRoot,
                                       std::string& error);
 
 bool taskReadyForSwitchDeploy(const DownloadTask& task);
+bool taskHasPortOrArchiveFiles(const std::string& appRoot,
+                               const DownloadTask& task);
 
 bool taskFilePathIsSafe(const std::string& path);
 bool taskFilePathIsValidUtf8(const std::string& path);

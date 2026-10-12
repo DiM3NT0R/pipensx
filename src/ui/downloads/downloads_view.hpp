@@ -213,6 +213,14 @@ public:
                                                     deploy_));
             });
         }
+        if (task.status == DownloadStatus::Completed &&
+            (task.mode == TransferMode::DownloadOnly ||
+             task.mode == TransferMode::PortInstall) &&
+            taskHasPortOrArchiveFiles(manager_->rootPath(), task)) {
+            add(tr("pipensx/port_install/how_to_install"), [this, taskId] {
+                openPortNoticeDialog([this, taskId] { openDetails(taskId); });
+            });
+        }
         if (caps.verify.allowed)
             add(tr("pipensx/common/verify"), [this, taskId] {
                 std::string error;

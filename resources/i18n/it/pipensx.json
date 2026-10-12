@@ -253,7 +253,9 @@
     "layout_layered": "Payload Atmosphere LayeredFS rilevato. I file verranno spostati nella root della SD, quindi questo torrent non potrà essere condiviso o riverificato dopo l'installazione.",
     "layout_missing": "Nessuna cartella switch/ o switch.zip / switch.7z trovata. pipensx scaricherà i file; potrebbe servire una configurazione extra.",
     "queued": "Aggiunto. I file saranno copiati in /switch al termine del download.",
-    "copy_skipped": "Download terminato. Potrebbe servire una configurazione extra per installare questo porting."
+    "copy_skipped": "Download terminato. Potrebbe servire una configurazione extra per installare questo porting.",
+    "how_to_install": "Come installare",
+    "notice_dialog_body": "Questo non è un gioco standard per Switch, ma un port o archivio. I file sono stati salvati nella cartella dei download. Per avviarlo, estraili nella radice della scheda SD o usa DBI."
   },
   "downloads": {
     "import": "Importa",

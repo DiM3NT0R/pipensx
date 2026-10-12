@@ -847,7 +847,16 @@ private:
             if (task->status == DownloadStatus::Paused ||
                 task->status == DownloadStatus::Error)
                 manager_->resume(task->id);
-            else
+            else if (task->status == DownloadStatus::Completed &&
+                     (task->mode == TransferMode::DownloadOnly ||
+                      task->mode == TransferMode::PortInstall) &&
+                     taskHasPortOrArchiveFiles(manager_->rootPath(), *task)) {
+                const std::string taskId = task->id;
+                openPortNoticeDialog([this, taskId] {
+                    brls::Application::pushActivity(
+                        new DetailsActivity(taskId, manager_, deploy_));
+                });
+            } else
                 // O5: tapping the live status button opens the download details.
                 brls::Application::pushActivity(
                     new DetailsActivity(task->id, manager_, deploy_));

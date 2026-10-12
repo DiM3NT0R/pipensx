@@ -523,4 +523,15 @@ inline void setShellHintStyle(brls::View* root) {
             setShellHintStyle(child);
     }
 }
+
+inline void openPortNoticeDialog(std::function<void()> onDetails = nullptr) {
+    auto* dialog = new brls::Dialog(
+        tr("pipensx/port_install/notice_dialog_body"));
+    dialog->addButton(tr("pipensx/common/ok"), [] {});
+    if (onDetails) {
+        dialog->addButton(tr("pipensx/common/details"),
+                          [onDetails = std::move(onDetails)] { onDetails(); });
+    }
+    dialog->open();
+}
 }  // namespace pipensx::ui

@@ -132,6 +132,33 @@ int main() {
     assert(loadTaskFileManifest(root, slashManifest.taskId, reloaded, error));
     assert(reloaded.files[0].size == 2000);
 
+    TaskFileManifest nspManifest;
+    nspManifest.taskId = "nsponlyhash0123456789012345678901234";
+    TaskFileRecord nspRecord;
+    nspRecord.logicalPath = "SuperGame.nsp";
+    nspRecord.localPath = "SuperGame.nsp";
+    nspRecord.size = 5000;
+    nspRecord.package = true;
+    nspRecord.action = TaskFileAction::Download;
+    nspManifest.files.push_back(nspRecord);
+    assert(saveTaskFileManifest(root, nspManifest, error));
+
+    DownloadTask nspDownloadTask;
+    nspDownloadTask.id = nspManifest.taskId;
+    nspDownloadTask.mode = TransferMode::DownloadOnly;
+    assert(!taskHasPortOrArchiveFiles(root, nspDownloadTask));
+
+    DownloadTask portModeTask;
+    portModeTask.id = "unknown_port_task";
+    portModeTask.mode = TransferMode::PortInstall;
+    assert(taskHasPortOrArchiveFiles(root, portModeTask));
+
+    DownloadTask nroDownloadTask;
+    nroDownloadTask.id = preview.infoHash;
+    nroDownloadTask.mode = TransferMode::DownloadOnly;
+    assert(taskHasPortOrArchiveFiles(root, nroDownloadTask));
+
+    removeTaskFileManifest(root, nspManifest.taskId);
     removeTaskFileManifest(root, preview.infoHash);
     assert(!loadTaskFileManifest(root, preview.infoHash, loaded, error));
     fs::remove_all(root);

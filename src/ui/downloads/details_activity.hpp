@@ -8,6 +8,7 @@
 #include <borealis.hpp>
 
 #include "app/download_manager.hpp"
+#include "app/task_files.hpp"
 #include "ui/common/progress_bar.hpp"
 #include "ui/common/speed_graph.hpp"
 #include "ui/common/ui_helpers.hpp"
@@ -116,6 +117,10 @@ public:
         filesButton_ = addActionButton(sidebar, tr("pipensx/files/open"),
                                        &brls::BUTTONSTYLE_DEFAULT);
         filesButton_->setVisibility(brls::Visibility::GONE);
+        instructionButton_ = addActionButton(
+            sidebar, tr("pipensx/port_install/how_to_install"),
+            &brls::BUTTONSTYLE_DEFAULT);
+        instructionButton_->setVisibility(brls::Visibility::GONE);
         copyButton_ = addActionButton(sidebar, tr("pipensx/deploy/install_port"),
                                       &brls::BUTTONSTYLE_PRIMARY);
         copyButton_->setVisibility(brls::Visibility::GONE);
@@ -142,6 +147,10 @@ public:
             if (deploy_)
                 brls::Application::pushActivity(
                     new TaskFilesActivity(taskId_, deploy_));
+            return true;
+        });
+        instructionButton_->registerClickAction([this](brls::View*) {
+            openPortNoticeDialog();
             return true;
         });
         copyButton_->registerClickAction([this](brls::View*) {
@@ -697,6 +706,14 @@ private:
              installed_);
         setSwitchFilesVisible(showSwitchFiles);
         setButtonAvailable(filesButton_, showSwitchFiles);
+        const bool showInstruction =
+            task.status == DownloadStatus::Completed &&
+            (task.mode == TransferMode::DownloadOnly ||
+             task.mode == TransferMode::PortInstall) &&
+            taskHasPortOrArchiveFiles(manager_->rootPath(), task);
+        instructionButton_->setVisibility(
+            showInstruction ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
+        setButtonAvailable(instructionButton_, showInstruction);
         const bool copyEnabled = showSwitchFiles && !installed_ &&
             ((deploy.active() && deploy.taskId == taskId_) ||
              (copyAvailable_ && !busyElsewhere && !packageBusy));
@@ -802,6 +819,7 @@ private:
     ProgressBar* deployProgress_;
     brls::Button* filesButton_;
     brls::Button* copyButton_;
+    brls::Button* instructionButton_;
     brls::Label* error_;
     brls::RepeatingTimer timer_;
     bool availabilityLoaded_ = false;

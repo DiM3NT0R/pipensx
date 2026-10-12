@@ -1304,10 +1304,16 @@ int main(int argc, char** argv) {
                     if (prevStatus == task.status)
                         continue;
                     lastTaskStatus[task.id] = task.status;
-                    if (task.status == pipensx::DownloadStatus::Completed)
-                        brls::Application::notify(
-                            tr("pipensx/notify/download_completed", task.name));
-                    else if (task.status == pipensx::DownloadStatus::Installed) {
+                    if (task.status == pipensx::DownloadStatus::Completed) {
+                        if ((task.mode == pipensx::TransferMode::DownloadOnly ||
+                             task.mode == pipensx::TransferMode::PortInstall) &&
+                            pipensx::taskHasPortOrArchiveFiles(manager.rootPath(), task)) {
+                            pipensx::ui::openPortNoticeDialog();
+                        } else {
+                            brls::Application::notify(
+                                tr("pipensx/notify/download_completed", task.name));
+                        }
+                    } else if (task.status == pipensx::DownloadStatus::Installed) {
                         brls::Application::notify(
                             tr("pipensx/notify/install_completed", task.name));
                         activity->refreshInstalledAndRecheck();
@@ -1369,6 +1375,7 @@ int main(int argc, char** argv) {
                         deploy.dismissDeployOffer(offerId);
                         brls::Application::notify(
                             tr("pipensx/port_install/copy_skipped"));
+                        pipensx::ui::openPortNoticeDialog();
                     } else {
                     deployOfferDialogOpen = true;
                     const auto task = manager.snapshotUi(offerId);
