@@ -28,6 +28,11 @@ compile_commands.json
 # Log files
 *.log
 
+# Local notes / agent session dumps
+docs/download-speed-analysis.md
+codex-session-*.md
+bug_reports/
+
 # Local scratch / working directories
 .codex/
 .codex-remote-attachments/

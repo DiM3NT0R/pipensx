@@ -4,6 +4,7 @@
 #include "installed_title_service.hpp"
 #include "game_metadata_service.hpp"
 #include "add_release.hpp"
+#include "companion_settings.hpp"
 #include "task_actions.hpp"
 
 extern "C" {
@@ -578,6 +579,16 @@ std::string WebServer::buildStateJson() {
     q["remainingBytes"] = summary.totalRemainingBytes;
     q["etaSeconds"] = summary.etaSeconds;
     state["summary"] = std::move(q);
+
+    // Download source for the companion sidebar: direct swarm vs the
+    // active debrid provider, plus whether its key/URL is set. Secrets
+    // stay flags, not values — same rule as companionSettingsJson — and
+    // the frame stays on the open read path so the sidebar needs no PIN.
+    Json source;
+    source["direct"] = manager_.torrentingEnabled();
+    source["provider"] = debridProviderJson(manager_.activeDebridProvider());
+    source["keyConfigured"] = !manager_.activeDebridCredential().empty();
+    state["source"] = std::move(source);
     return dumpJson(state);
 }
 

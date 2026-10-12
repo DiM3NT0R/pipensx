@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b0f14">
+<meta name="theme-color" content="#101416">
 <title>pipensx</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon-192.png">
@@ -11,336 +11,387 @@
 <link rel="stylesheet" href="/app.css?v=remote-library-1">
 </head>
 <body>
-<div class="bg-glow" aria-hidden="true"></div>
-
-<header class="topbar">
-  <div class="brand">
-    <span class="brand-logo" aria-hidden="true">
-      <svg viewBox="0 0 32 32" width="26" height="26"><rect x="2" y="2" width="28" height="28" rx="8" fill="#00c3e3"/><path d="M10 22V10h5.2c3.1 0 5 1.7 5 4.2 0 2.2-1.5 3.7-3.8 4.1l4 3.7h-3.6l-3.5-3.4h-1v3.4H10zm2.3-5.4h2.6c1.7 0 2.7-.9 2.7-2.2s-1-2.2-2.7-2.2h-2.6v4.4z" fill="#04252b"/></svg>
-    </span>
-    <span class="brand-name">pipensx</span>
-    <span id="ver-badge" class="ver-badge" hidden></span>
+<aside class="sidebar" id="sidebar" aria-label="Navigation">
+  <a class="brand" href="#downloads" aria-label="pipensx home">
+    <img class="brand-logo" src="/icon-192.png" alt="pipensx logo">
+    <span class="brand-text">pipensx</span>
+  </a>
+  <nav aria-label="Main">
+    <a href="#downloads" data-page="downloads" class="nav-item"><span data-icon="download" aria-hidden="true"></span><span data-i18n="tabs.downloads">Downloads</span><span id="dl-count" class="nav-count" hidden></span></a>
+    <a href="#catalog" data-page="catalog" class="nav-item"><span data-icon="grid" aria-hidden="true"></span><span data-i18n="tabs.catalog">Catalog</span></a>
+    <a href="#library" data-page="library" class="nav-item"><span data-icon="library" aria-hidden="true"></span><span data-i18n="tabs.library">Installed</span></a>
+    <a href="#add" data-page="add" class="nav-item"><span data-icon="plus" aria-hidden="true"></span><span data-i18n="tabs.add">Add</span></a>
+    <a href="#logs" data-page="logs" class="nav-item"><span data-icon="layers" aria-hidden="true"></span><span data-i18n="tabs.logs">Logs</span></a>
+    <a href="#settings" data-page="settings" class="nav-item"><span data-icon="settings" aria-hidden="true"></span><span data-i18n="tabs.settings">Settings</span></a>
+  </nav>
+  <div class="sidebar-bottom">
+    <div class="storage-label">
+      <span data-icon="disk" aria-hidden="true"></span>microSD
+      <strong id="sb-storage-free">—</strong>
+    </div>
+    <div class="storage-track"><span id="sb-storage-fill"></span></div>
+    <div class="storage-meta">
+      <span id="sb-storage-text">—</span><span id="sb-ver"></span>
+    </div>
+    <div class="profile">
+      <span class="avatar" aria-hidden="true">P</span>
+      <span><span id="sb-source">—</span><small id="sb-source-status"></small></span>
+    </div>
   </div>
-  <div class="top-actions">
-    <button id="theme-btn" class="icon-btn" title="Theme">🌙</button>
-    <button id="lang-btn" class="icon-btn" title="Language">EN</button>
-    <div id="conn" class="conn" title="connection"><span class="conn-dot"></span><span id="conn-text">offline</span></div>
-  </div>
-</header>
+</aside>
 
-<nav class="tabs" role="tablist">
-  <a href="#downloads" data-tab="downloads" class="tab" role="tab"><span class="tab-ico">⤓</span><span data-i18n="tabs.downloads">Downloads</span><span id="dl-count" class="tab-badge" hidden></span></a>
-  <a href="#catalog" data-tab="catalog" class="tab" role="tab"><span class="tab-ico">🎮</span><span data-i18n="tabs.catalog">Catalog</span></a>
-  <a href="#library" data-tab="library" class="tab" role="tab"><span class="tab-ico">▣</span><span data-i18n="tabs.library">Installed</span></a>
-  <a href="#add" data-tab="add" class="tab" role="tab"><span class="tab-ico">＋</span><span data-i18n="tabs.add">Add</span></a>
-  <a href="#logs" data-tab="logs" class="tab" role="tab"><span class="tab-ico">▤</span><span data-i18n="tabs.logs">Logs</span></a>
-  <a href="#settings" data-tab="settings" class="tab" role="tab"><span class="tab-ico">⚙</span><span data-i18n="tabs.settings">Settings</span></a>
-</nav>
+<div class="shell">
+  <header class="topbar">
+    <button class="icon-button mobile-menu" id="menu-button" aria-label="Open menu"><span data-icon="menu" aria-hidden="true"></span></button>
+    <label class="global-search"><span data-icon="search" aria-hidden="true"></span><input id="global-search" type="search" placeholder="Search downloads…" autocomplete="off" aria-label="Search"><kbd>/</kbd></label>
+    <div class="topbar-actions">
+      <button id="theme-btn" class="icon-button" title="Theme" aria-label="Theme"><span data-icon="moon" aria-hidden="true"></span></button>
+      <button id="lang-btn" class="icon-btn" title="Language">EN</button>
+      <span class="avatar small" aria-hidden="true">P</span>
+    </div>
+  </header>
 
-<main>
-  <!-- DOWNLOADS -->
-  <section id="view-downloads" class="view">
-    <div id="dash" class="dash">
-      <div class="stat-card stat-speed">
-        <div class="stat-label" data-i18n="speed.download">Download</div>
-        <div class="stat-value" id="stat-speed">—</div>
-        <div class="stat-sub" id="stat-install-speed">—</div>
-        <div class="stat-sub" id="stat-peers">—</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label" data-i18n="dash.queue">Queue</div>
-        <div class="stat-value" id="stat-queue">—</div>
-        <div class="stat-sub" id="stat-queue-sub">—</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label" data-i18n="dash.remaining">Remaining</div>
-        <div class="stat-value" id="stat-remaining">—</div>
-        <div class="stat-sub" id="stat-eta">—</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label" data-i18n="dash.storage">SD storage</div>
-        <div class="stat-value" id="stat-storage">—</div>
-        <div class="storage-bar"><div id="storage-fill" class="storage-fill"></div></div>
-        <div class="stat-sub" id="storage-text">—</div>
-      </div>
-    </div>
-
-    <div class="card chart-card" id="chart-card" hidden>
-      <div class="chart-head">
-        <span data-i18n="dash.traffic">Traffic</span>
-        <span id="chart-legend" class="chart-legend"></span>
-      </div>
-      <canvas id="speed-chart" height="64"></canvas>
-    </div>
-
-    <div class="toolbar">
-      <div class="toolbar-row">
-        <input id="task-search" type="search" data-i18n-ph="downloads.search" placeholder="Search downloads…" autocomplete="off">
-        <select id="task-filter">
-          <option value="all" data-i18n="downloads.all">All</option>
-          <option value="active" data-i18n="downloads.active">Active</option>
-          <option value="Downloading">Downloading</option>
-          <option value="Installing">Installing</option>
-          <option value="Queued">Queued</option>
-          <option value="Paused">Paused</option>
-          <option value="Completed">Completed</option>
-          <option value="Installed">Installed</option>
-          <option value="Error">Error</option>
-        </select>
-        <select id="task-sort">
-          <option value="recent" data-i18n="sort.recent">Recent</option>
-          <option value="name" data-i18n="sort.name">Name</option>
-          <option value="progress" data-i18n="sort.progress">Progress</option>
-          <option value="speed" data-i18n="sort.speed">Speed</option>
-          <option value="eta" data-i18n="sort.eta">ETA</option>
-        </select>
-      </div>
-      <div class="toolbar-row toolbar-bulk">
-        <button id="bulk-pause" class="btn btn-ghost" data-i18n="downloads.pauseAll">Pause all</button>
-        <button id="bulk-resume" class="btn btn-ghost" data-i18n="downloads.resumeAll">Resume all</button>
-        <button id="bulk-clear" class="btn btn-ghost" data-i18n="downloads.clearDone">Clear entries</button>
-        <button id="bulk-clear-files" class="btn btn-ghost" data-i18n="downloads.clearFiles">Delete files</button>
-        <span class="spacer"></span>
-        <button id="alerts-btn" class="btn btn-ghost">🔔 <span data-i18n="downloads.alerts">Alerts</span>: <span id="alerts-state">on</span></button>
-        <button id="notify-btn" class="btn btn-ghost" hidden data-i18n="downloads.enableNotify">Enable notifications</button>
-      </div>
-    </div>
-
-    <div id="jobs"></div>
-    <div id="tasks"></div>
-    <div id="tasks-empty" class="empty" hidden>
-      <div class="empty-art" aria-hidden="true">🎮</div>
-      <p data-i18n="downloads.empty">No downloads yet.</p>
-      <p class="empty-sub" data-i18n="downloads.emptySub">Add a magnet link or pick something from the catalog.</p>
-      <button class="btn btn-primary" id="empty-browse" data-i18n="downloads.browse">Browse catalog</button>
-    </div>
-  </section>
-
-  <!-- CATALOG -->
-  <section id="view-catalog" class="view" hidden>
-    <div class="segmented catalog-sections" role="group" aria-label="Catalog section">
-      <button class="btn btn-primary" id="catalog-games" data-section="games" data-i18n="catalog.games" aria-pressed="true">Games</button>
-      <button class="btn" id="catalog-ports" data-section="ports" data-i18n="catalog.ports" aria-pressed="false">Ports</button>
-    </div>
-    <div class="catalog-hero">
-      <div>
-        <h1 data-i18n="catalog.title">Game catalog</h1>
-        <p id="catalog-count" class="hero-sub"></p>
-      </div>
-    </div>
-    <div class="filter-bar">
-      <input id="search" type="search" data-i18n-ph="catalog.search" placeholder="Search 4000+ games…" autocomplete="off">
-      <div class="filter-row">
-        <select id="flt-genre"><option value="" data-i18n="catalog.allGenres">All genres</option></select>
-        <select id="flt-year"><option value="" data-i18n="catalog.allYears">All years</option></select>
-        <select id="flt-size">
-          <option value="" data-i18n="catalog.anySize">Any size</option>
-          <option value="small" data-i18n="catalog.small">&lt; 4 GiB</option>
-          <option value="medium" data-i18n="catalog.medium">4–10 GiB</option>
-          <option value="large" data-i18n="catalog.large">&gt; 10 GiB</option>
-        </select>
-        <select id="flt-sort">
-          <option value="title" data-i18n="sort.name">Name</option>
-          <option value="year-desc" data-i18n="catalog.newest">Newest</option>
-          <option value="size-desc" data-i18n="catalog.biggest">Biggest</option>
-          <option value="size-asc" data-i18n="catalog.smallest">Smallest</option>
-          <option value="recent" data-i18n="catalog.recentlyAdded">Recently added</option>
-        </select>
-        <button id="flt-reset" class="btn btn-ghost" data-i18n="catalog.reset">Reset</button>
-      </div>
-    </div>
-    <div id="catalog-status" class="empty" hidden></div>
-    <div id="catalog-grid" class="grid"></div>
-    <div id="catalog-sentinel"></div>
-  </section>
-
-  <!-- ADD -->
-  <section id="view-library" class="view" hidden>
-    <div class="catalog-hero"><div>
-      <h1 data-i18n="library.title">Installed games</h1>
-      <p data-i18n="library.sub">Check updates and manage games installed on your Switch.</p>
-    </div></div>
-    <div class="library-toolbar">
-      <input id="library-search" type="search" data-i18n-ph="library.search" placeholder="Search installed games…">
-      <select id="library-filter">
-        <option value="all" data-i18n="library.all">All installed</option>
-        <option value="updates" data-i18n="library.updates">Updates available</option>
-      </select>
-      <button id="library-refresh" class="btn" data-i18n="library.refresh">Check updates</button>
-      <button id="library-update-all" class="btn btn-primary" data-i18n="library.updateAll">Update all</button>
-    </div>
-    <p id="library-status" role="status"></p>
-    <div id="library-jobs" aria-live="polite"></div>
-    <div id="library-list" class="library-list"></div>
-  </section>
-  <section id="view-add" class="view" hidden>
-    <div class="card form-card add-hero">
-      <h2 data-i18n="add.magnet">Magnet link</h2>
-      <p class="card-sub" data-i18n="add.magnetSub">Paste a magnet URI — the Switch resolves it.</p>
-      <textarea id="magnet-input" rows="3" placeholder="magnet:?xt=urn:btih:…"></textarea>
-      <div class="mode-row segmented" id="magnet-mode" role="radiogroup">
-        <label class="seg"><input type="radio" name="magnet-mode" value="install" checked><span data-i18n="add.install">Install</span></label>
-        <label class="seg"><input type="radio" name="magnet-mode" value="download" ><span data-i18n="add.download">Download only</span></label>
-      </div>
-      <button id="magnet-btn" class="btn btn-primary btn-block" data-i18n="add.addMagnet">Add magnet</button>
-    </div>
-    <div class="card form-card">
-      <h2 data-i18n="add.torrent">.torrent file</h2>
-      <p class="card-sub" data-i18n="add.torrentSub">Upload a .torrent — or drop it anywhere on this tab.</p>
-      <label id="dropzone" class="dropzone">
-        <input id="torrent-file" type="file" accept=".torrent,application/x-bittorrent" hidden>
-        <span class="drop-ico">📦</span>
-        <span class="drop-text" data-i18n="add.drop">Drop .torrent here or click to choose</span>
-        <span id="drop-name" class="drop-name"></span>
-      </label>
-      <div class="mode-row segmented" id="torrent-mode" role="radiogroup">
-        <label class="seg"><input type="radio" name="torrent-mode" value="install" checked><span data-i18n="add.install">Install</span></label>
-        <label class="seg"><input type="radio" name="torrent-mode" value="download"><span data-i18n="add.download">Download only</span></label>
-      </div>
-      <button id="torrent-btn" class="btn btn-primary btn-block" data-i18n="add.upload">Upload torrent</button>
-    </div>
-  </section>
-
-  <!-- LOGS -->
-  <section id="view-logs" class="view" hidden>
-    <div class="card form-card" id="log-benchmark" hidden></div>
-    <div class="card log-card">
-      <div class="log-head">
-        <div>
-          <h2 data-i18n="logs.title">Diagnostic log</h2>
-          <p class="card-sub" data-i18n="logs.sub">Live tail of pipensx.log from the Switch.</p>
+  <div class="content-layout">
+    <main id="main">
+      <!-- DOWNLOADS -->
+      <section id="view-downloads" class="view">
+        <div class="page-header">
+          <div><div class="eyebrow">pipensx</div><h1 data-i18n="tabs.downloads">Downloads</h1></div>
         </div>
-        <span id="log-status" class="log-status">—</span>
-      </div>
-      <div class="toolbar log-toolbar">
-        <div class="toolbar-row">
-          <input id="log-search" type="search" data-i18n-ph="logs.search" placeholder="Search log…" autocomplete="off">
-          <select id="log-filter">
-            <option value="all" data-i18n="logs.all">All</option>
-            <option value="realdebrid">Real-Debrid</option>
-            <option value="install" data-i18n="logs.install">Install</option>
-            <option value="performance" data-i18n="logs.performance">Performance</option>
-            <option value="errors" data-i18n="logs.errors">Errors</option>
+        <div id="dash" class="dash">
+          <div class="stat-card stat-speed">
+            <div class="stat-label" data-i18n="dash.speed">Speed</div>
+            <div class="stat-value" id="stat-speed">—</div>
+            <div class="stat-sub" id="stat-install-speed">—</div>
+            <div class="stat-sub" id="stat-peers">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label" data-i18n="dash.queue">Queue</div>
+            <div class="stat-value" id="stat-queue">—</div>
+            <div class="stat-sub" id="stat-queue-sub">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label" data-i18n="dash.remaining">Remaining</div>
+            <div class="stat-value" id="stat-remaining">—</div>
+            <div class="stat-sub" id="stat-eta">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label" data-i18n="dash.storage">SD storage</div>
+            <div class="stat-value" id="stat-storage">—</div>
+            <div class="storage-bar"><div id="storage-fill" class="storage-fill"></div></div>
+            <div class="stat-sub" id="storage-text">—</div>
+          </div>
+        </div>
+
+        <div class="card chart-card" id="chart-card" hidden>
+          <div class="chart-head">
+            <span data-i18n="dash.traffic">Traffic</span>
+            <span id="chart-legend" class="chart-legend"></span>
+          </div>
+          <canvas id="speed-chart" height="64"></canvas>
+        </div>
+
+        <div class="toolbar">
+          <div class="toolbar-row">
+            <select id="task-filter" class="filter-chip" aria-label="Filter">
+              <option value="all" data-i18n="downloads.all">All</option>
+              <option value="active" data-i18n="downloads.active">Active</option>
+              <option value="Downloading">Downloading</option>
+              <option value="Installing">Installing</option>
+              <option value="Queued">Queued</option>
+              <option value="Paused">Paused</option>
+              <option value="Completed">Completed</option>
+              <option value="Installed">Installed</option>
+              <option value="Error">Error</option>
+            </select>
+            <select id="task-sort" class="filter-chip" aria-label="Sort">
+              <option value="recent" data-i18n="sort.recent">Recent</option>
+              <option value="name" data-i18n="sort.name">Name</option>
+              <option value="progress" data-i18n="sort.progress">Progress</option>
+              <option value="speed" data-i18n="sort.speed">Speed</option>
+              <option value="eta" data-i18n="sort.eta">ETA</option>
+            </select>
+          </div>
+          <div class="toolbar-row toolbar-bulk">
+            <button id="bulk-pause" class="btn btn-ghost" data-i18n="downloads.pauseAll">Pause all</button>
+            <button id="bulk-resume" class="btn btn-ghost" data-i18n="downloads.resumeAll">Resume all</button>
+            <button id="bulk-clear" class="btn btn-ghost" data-i18n="downloads.clearDone">Clear entries</button>
+            <button id="bulk-clear-files" class="btn btn-ghost" data-i18n="downloads.clearFiles">Delete files</button>
+            <span class="spacer"></span>
+            <button id="alerts-btn" class="btn btn-ghost"><span data-icon="bell" aria-hidden="true"></span><span data-i18n="downloads.alerts">Alerts</span>: <span id="alerts-state">on</span></button>
+            <button id="notify-btn" class="btn btn-ghost" hidden data-i18n="downloads.enableNotify">Enable notifications</button>
+          </div>
+        </div>
+
+        <div id="jobs"></div>
+        <div id="tasks"></div>
+        <div id="tasks-empty" class="empty" hidden>
+          <div class="empty-art" aria-hidden="true"><span data-icon="box"></span></div>
+          <p data-i18n="downloads.empty">No downloads yet.</p>
+          <p class="empty-sub" data-i18n="downloads.emptySub">Add a magnet link or pick something from the catalog.</p>
+          <button class="btn btn-primary" id="empty-browse" data-i18n="downloads.browse">Browse catalog</button>
+        </div>
+      </section>
+
+      <!-- CATALOG -->
+      <section id="view-catalog" class="view" hidden>
+        <div class="segmented catalog-sections" role="group" aria-label="Catalog section">
+          <button class="btn btn-primary" id="catalog-games" data-section="games" data-i18n="catalog.games" aria-pressed="true">Games</button>
+          <button class="btn" id="catalog-ports" data-section="ports" data-i18n="catalog.ports" aria-pressed="false">Ports</button>
+        </div>
+        <div class="catalog-hero">
+          <div>
+            <div class="eyebrow" data-i18n="tabs.catalog">Catalog</div>
+            <h1 data-i18n="catalog.title">Game catalog</h1>
+            <p id="catalog-count" class="hero-sub"></p>
+          </div>
+        </div>
+        <div class="filter-bar">
+          <div class="filter-row">
+            <select id="flt-genre"><option value="" data-i18n="catalog.allGenres">All genres</option></select>
+            <select id="flt-year"><option value="" data-i18n="catalog.allYears">All years</option></select>
+            <select id="flt-size">
+              <option value="" data-i18n="catalog.anySize">Any size</option>
+              <option value="small" data-i18n="catalog.small">&lt; 4 GiB</option>
+              <option value="medium" data-i18n="catalog.medium">4–10 GiB</option>
+              <option value="large" data-i18n="catalog.large">&gt; 10 GiB</option>
+            </select>
+            <select id="flt-sort">
+              <option value="title" data-i18n="sort.name">Name</option>
+              <option value="year-desc" data-i18n="catalog.newest">Newest</option>
+              <option value="size-desc" data-i18n="catalog.biggest">Biggest</option>
+              <option value="size-asc" data-i18n="catalog.smallest">Smallest</option>
+              <option value="recent" data-i18n="catalog.recentlyAdded">Recently added</option>
+            </select>
+            <button id="flt-reset" class="btn btn-ghost" data-i18n="catalog.reset">Reset</button>
+          </div>
+        </div>
+        <div id="catalog-status" class="empty" hidden></div>
+        <div id="catalog-grid" class="grid"></div>
+        <div id="catalog-sentinel"></div>
+      </section>
+
+      <!-- INSTALLED / LIBRARY -->
+      <section id="view-library" class="view" hidden>
+        <div class="catalog-hero"><div>
+          <div class="eyebrow" data-i18n="tabs.library">Installed</div>
+          <h1 data-i18n="library.title">Installed games</h1>
+          <p data-i18n="library.sub">Check updates and manage games installed on your Switch.</p>
+        </div></div>
+        <div class="library-toolbar">
+          <input id="library-search" type="search" data-i18n-ph="library.search" placeholder="Search installed games…">
+          <select id="library-filter">
+            <option value="all" data-i18n="library.all">All installed</option>
+            <option value="updates" data-i18n="library.updates">Updates available</option>
           </select>
-          <button id="log-refresh" class="btn btn-primary" data-i18n="logs.refresh">Refresh</button>
+          <button id="library-refresh" class="btn" data-i18n="library.refresh">Check updates</button>
+          <button id="library-update-all" class="btn btn-primary" data-i18n="library.updateAll">Update all</button>
         </div>
-        <div class="toolbar-row toolbar-bulk">
-          <label class="log-auto"><input id="log-auto" type="checkbox" checked> <span data-i18n="logs.auto">Auto refresh</span></label>
-          <label class="log-auto"><input id="log-telemetry" type="checkbox"> <span data-i18n="logs.telemetry">Detailed speed diagnostics</span></label>
-          <span class="spacer"></span>
-          <button id="log-copy" class="btn btn-ghost" data-i18n="logs.copy">Copy</button>
-          <button id="log-download" class="btn btn-ghost" data-i18n="logs.download">Download</button>
+        <p id="library-status" role="status"></p>
+        <div id="library-jobs" aria-live="polite"></div>
+        <div id="library-list" class="library-list"></div>
+      </section>
+
+      <!-- ADD -->
+      <section id="view-add" class="view" hidden>
+        <div class="card form-card add-hero">
+          <h2 data-i18n="add.magnet">Magnet link</h2>
+          <p class="card-sub" data-i18n="add.magnetSub">Paste a magnet URI — the Switch resolves it.</p>
+          <textarea id="magnet-input" rows="3" placeholder="magnet:?xt=urn:btih:…"></textarea>
+          <div class="mode-row segmented" id="magnet-mode" role="radiogroup">
+            <label class="seg"><input type="radio" name="magnet-mode" value="install" checked><span data-i18n="add.install">Install</span></label>
+            <label class="seg"><input type="radio" name="magnet-mode" value="download"><span data-i18n="add.download">Download only</span></label>
+          </div>
+          <button id="magnet-btn" class="btn btn-primary btn-block" data-i18n="add.addMagnet">Add magnet</button>
+        </div>
+        <div class="card form-card">
+          <h2 data-i18n="add.torrent">.torrent file</h2>
+          <p class="card-sub" data-i18n="add.torrentSub">Upload a .torrent — or drop it anywhere on this tab.</p>
+          <label id="dropzone" class="dropzone">
+            <input id="torrent-file" type="file" accept=".torrent,application/x-bittorrent" hidden>
+            <span class="drop-ico" data-icon="box"></span>
+            <span class="drop-text" data-i18n="add.drop">Drop .torrent here or click to choose</span>
+            <span id="drop-name" class="drop-name"></span>
+          </label>
+          <div class="mode-row segmented" id="torrent-mode" role="radiogroup">
+            <label class="seg"><input type="radio" name="torrent-mode" value="install" checked><span data-i18n="add.install">Install</span></label>
+            <label class="seg"><input type="radio" name="torrent-mode" value="download"><span data-i18n="add.download">Download only</span></label>
+          </div>
+          <button id="torrent-btn" class="btn btn-primary btn-block" data-i18n="add.upload">Upload torrent</button>
+        </div>
+      </section>
+
+      <!-- LOGS -->
+      <section id="view-logs" class="view" hidden>
+        <div class="card form-card" id="log-benchmark" hidden></div>
+        <div class="card log-card">
+          <div class="log-head">
+            <div>
+              <h2 data-i18n="logs.title">Diagnostic log</h2>
+              <p class="card-sub" data-i18n="logs.sub">Live tail of pipensx.log from the Switch.</p>
+            </div>
+            <span id="log-status" class="log-status">—</span>
+          </div>
+          <div class="toolbar log-toolbar">
+            <div class="toolbar-row">
+              <input id="log-search" type="search" data-i18n-ph="logs.search" placeholder="Search log…" autocomplete="off">
+              <select id="log-filter">
+                <option value="all" data-i18n="logs.all">All</option>
+                <option value="realdebrid">Real-Debrid</option>
+                <option value="install" data-i18n="logs.install">Install</option>
+                <option value="performance" data-i18n="logs.performance">Performance</option>
+                <option value="errors" data-i18n="logs.errors">Errors</option>
+              </select>
+              <button id="log-refresh" class="btn btn-primary" data-i18n="logs.refresh">Refresh</button>
+            </div>
+            <div class="toolbar-row toolbar-bulk">
+              <label class="log-auto"><input id="log-auto" type="checkbox" checked> <span data-i18n="logs.auto">Auto refresh</span></label>
+              <label class="log-auto"><input id="log-telemetry" type="checkbox"> <span data-i18n="logs.telemetry">Detailed speed diagnostics</span></label>
+              <span class="spacer"></span>
+              <button id="log-copy" class="btn btn-ghost" data-i18n="logs.copy">Copy</button>
+              <button id="log-download" class="btn btn-ghost" data-i18n="logs.download">Download</button>
+            </div>
+          </div>
+          <pre id="log-output" class="log-output" aria-live="polite"></pre>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="view-settings" class="view" hidden>
+        <div class="card form-card">
+          <h2 data-i18n="update.title">pipensx update</h2>
+          <p class="card-sub" data-i18n="update.sub">Upload a new pipensx.nro directly to the Switch. GitHub is not used for this update.</p>
+          <div id="update-status" class="update-status">—</div>
+          <label id="update-dropzone" class="dropzone">
+            <input id="update-file" type="file" accept=".nro,application/octet-stream" hidden>
+            <span class="drop-ico" data-icon="plus"></span>
+            <span class="drop-text" data-i18n="update.drop">Choose the new pipensx.nro</span>
+            <span id="update-file-name" class="drop-name"></span>
+          </label>
+          <div class="update-actions">
+            <button id="update-upload" class="btn btn-primary" data-i18n="update.upload">Upload update</button>
+            <button id="update-apply" class="btn btn-ghost" data-i18n="update.apply" hidden>Apply on Switch</button>
+          </div>
+        </div>
+
+        <div class="card form-card">
+          <h2 data-i18n="settings.appearance">Appearance</h2>
+          <label class="field"><span data-i18n="settings.theme">Theme</span>
+            <select id="set-theme">
+              <option value="dark" data-i18n="settings.dark">Dark</option>
+              <option value="light" data-i18n="settings.light">Light</option>
+              <option value="auto" data-i18n="settings.auto">System</option>
+            </select>
+          </label>
+          <label class="field"><span data-i18n="settings.language">Language</span>
+            <select id="set-lang">
+              <option value="en">English</option>
+              <option value="ru">Русский</option>
+              <option value="pt-BR">Português (Brasil)</option>
+              <option value="fr">Français</option>
+              <option value="es">Español</option>
+              <option value="zh-CN">简体中文</option>
+              <option value="it">Italiano</option>
+              <option value="ko">한국어</option>
+            </select>
+          </label>
+        </div>
+        <div class="card form-card">
+          <h2 data-i18n="settings.downloads">Downloads</h2>
+          <label class="field"><span data-i18n="settings.concurrent">Concurrent downloads</span>
+            <select id="set-max-active">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </label>
+          <label class="field"><span data-i18n="settings.stream">Stream selection</span>
+            <select id="set-stream">
+              <option value="allFiles" data-i18n="settings.allFiles">All files</option>
+              <option value="packagesOnly" data-i18n="settings.packagesOnly">Packages only</option>
+            </select>
+          </label>
+          <label class="field"><span data-i18n="settings.location">Install location</span>
+            <select id="set-install">
+              <option value="sdCard">SD Card</option>
+              <option value="systemMemory">System Memory</option>
+            </select>
+          </label>
+        </div>
+        <div class="card form-card">
+          <h2>Debrid</h2>
+          <label class="field"><span>Provider</span>
+            <select id="set-debrid">
+              <option value="torbox">TorBox</option>
+              <option value="torrserver">TorrServer</option>
+              <option value="realdebrid">Real-Debrid</option>
+              <option value="alldebrid">AllDebrid</option>
+            </select>
+          </label>
+          <label class="field"><span>TorBox API key</span>
+            <input id="set-torbox" type="password" autocomplete="off" placeholder="">
+          </label>
+          <label class="field"><span>Real-Debrid API token</span>
+            <input id="set-realdebrid" type="password" autocomplete="off" placeholder="">
+          </label>
+          <label class="field"><span>AllDebrid API key</span>
+            <input id="set-alldebrid" type="password" autocomplete="off" placeholder="">
+          </label>
+          <label class="field"><span>TorrServer URL</span>
+            <input id="set-torrserver" type="url" placeholder="http://192.168.1.10:8090">
+          </label>
+        </div>
+        <div class="card form-card">
+          <h2 data-i18n="settings.network">Network</h2>
+          <label class="field"><span>Proxy URL</span>
+            <input id="set-proxy" type="url" placeholder="socks5://host:1080">
+          </label>
+        </div>
+        <div class="card form-card">
+          <h2 data-i18n="settings.catalog">Catalog</h2>
+          <label class="field"><span data-i18n="settings.catalogUrl">Catalog source URL</span>
+            <input id="set-catalog-url" type="url" placeholder="https://…/switch_games.json">
+          </label>
+          <label class="field check">
+            <input id="set-catalog-refresh" type="checkbox"><span data-i18n="settings.refresh">Refresh catalog on launch</span>
+          </label>
+        </div>
+        <button id="settings-save" class="btn btn-primary btn-block" data-i18n="settings.save">Save settings</button>
+      </section>
+    </main>
+
+    <aside class="activity-panel" aria-label="Activity">
+      <div class="activity-card">
+        <div class="activity-heading"><span data-icon="git" aria-hidden="true"></span><span id="activity-conn">online</span></div>
+        <div class="activity-metric">
+          <div class="label" data-i18n="dash.speed">Speed</div>
+          <div class="val" id="act-speed">—</div>
+        </div>
+        <div class="activity-row">
+          <div class="label" data-i18n="dash.storage">SD storage</div>
+          <div class="val" id="act-storage">—</div>
+        </div>
+        <div class="activity-row">
+          <div class="label" data-i18n="dash.queue">Queue</div>
+          <div class="val" id="act-queue">—</div>
         </div>
       </div>
-      <pre id="log-output" class="log-output" aria-live="polite"></pre>
-    </div>
-  </section>
-
-  <!-- SETTINGS -->
-  <section id="view-settings" class="view" hidden>
-    <div class="card form-card">
-      <h2 data-i18n="update.title">pipensx update</h2>
-      <p class="card-sub" data-i18n="update.sub">Upload a new pipensx.nro directly to the Switch. GitHub is not used for this update.</p>
-      <div id="update-status" class="update-status">—</div>
-      <label id="update-dropzone" class="dropzone">
-        <input id="update-file" type="file" accept=".nro,application/octet-stream" hidden>
-        <span class="drop-ico">⬆</span>
-        <span class="drop-text" data-i18n="update.drop">Choose the new pipensx.nro</span>
-        <span id="update-file-name" class="drop-name"></span>
-      </label>
-      <div class="update-actions">
-        <button id="update-upload" class="btn btn-primary" data-i18n="update.upload">Upload update</button>
-        <button id="update-apply" class="btn btn-ghost" data-i18n="update.apply" hidden>Apply on Switch</button>
+      <div class="activity-card">
+        <div class="activity-heading"><span data-icon="compass" aria-hidden="true"></span><span data-i18n="tabs.catalog">Catalog</span></div>
+        <div class="activity-metric">
+          <div class="label" data-i18n="catalog.title">Games</div>
+          <div class="val" id="activity-catalog-count">—</div>
+          <div class="sub" id="catalog-time">—</div>
+        </div>
       </div>
-    </div>
-    <div class="card form-card">
-      <h2 data-i18n="settings.appearance">Appearance</h2>
-      <label class="field"><span data-i18n="settings.theme">Theme</span>
-        <select id="set-theme">
-          <option value="dark" data-i18n="settings.dark">Dark</option>
-          <option value="light" data-i18n="settings.light">Light</option>
-          <option value="auto" data-i18n="settings.auto">System</option>
-        </select>
-      </label>
-      <label class="field"><span data-i18n="settings.language">Language</span>
-        <select id="set-lang">
-          <option value="en">English</option>
-          <option value="ru">Русский</option>
-          <option value="pt-BR">Português (Brasil)</option>
-          <option value="fr">Français</option>
-          <option value="es">Español</option>
-          <option value="zh-CN">简体中文</option>
-          <option value="it">Italiano</option>
-          <option value="ko">한국어</option>
-        </select>
-      </label>
-    </div>
-    <div class="card form-card">
-      <h2 data-i18n="settings.downloads">Downloads</h2>
-      <label class="field"><span data-i18n="settings.concurrent">Concurrent downloads</span>
-        <select id="set-max-active">
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
-          <option value="4">4</option>
-        </select>
-      </label>
-      <label class="field"><span data-i18n="settings.stream">Stream selection</span>
-        <select id="set-stream">
-          <option value="allFiles" data-i18n="settings.allFiles">All files</option>
-          <option value="packagesOnly" data-i18n="settings.packagesOnly">Packages only</option>
-        </select>
-      </label>
-      <label class="field"><span data-i18n="settings.location">Install location</span>
-        <select id="set-install">
-          <option value="sdCard">SD Card</option>
-          <option value="systemMemory">System Memory</option>
-        </select>
-      </label>
-    </div>
-    <div class="card form-card">
-      <h2>Debrid</h2>
-      <label class="field"><span>Provider</span>
-        <select id="set-debrid">
-          <option value="torbox">TorBox</option>
-          <option value="torrserver">TorrServer</option>
-          <option value="realdebrid">Real-Debrid</option>
-          <option value="alldebrid">AllDebrid</option>
-        </select>
-      </label>
-      <label class="field"><span>TorBox API key</span>
-        <input id="set-torbox" type="password" autocomplete="off" placeholder="">
-      </label>
-      <label class="field"><span>Real-Debrid API token</span>
-        <input id="set-realdebrid" type="password" autocomplete="off" placeholder="">
-      </label>
-      <label class="field"><span>AllDebrid API key</span>
-        <input id="set-alldebrid" type="password" autocomplete="off" placeholder="">
-      </label>
-      <label class="field"><span>TorrServer URL</span>
-        <input id="set-torrserver" type="url" placeholder="http://192.168.1.10:8090">
-      </label>
-    </div>
-    <div class="card form-card">
-      <h2 data-i18n="settings.network">Network</h2>
-      <label class="field"><span>Proxy URL</span>
-        <input id="set-proxy" type="url" placeholder="socks5://host:1080">
-      </label>
-    </div>
-    <div class="card form-card">
-      <h2 data-i18n="settings.catalog">Catalog</h2>
-      <label class="field"><span data-i18n="settings.catalogUrl">Catalog source URL</span>
-        <input id="set-catalog-url" type="url" placeholder="https://…/switch_games.json">
-      </label>
-      <label class="field check">
-        <input id="set-catalog-refresh" type="checkbox"><span data-i18n="settings.refresh">Refresh catalog on launch</span>
-      </label>
-    </div>
-    <button id="settings-save" class="btn btn-primary btn-block" data-i18n="settings.save">Save settings</button>
-  </section>
-</main>
-
-<footer class="foot"><span id="foot-ver"></span></footer>
+      <div class="activity-card">
+        <div class="activity-heading"><span data-icon="layers" aria-hidden="true"></span><span data-i18n="tabs.downloads">Downloads</span></div>
+        <div id="mini-queue" class="mini-queue"></div>
+      </div>
+    </aside>
+  </div>
+</div>
 
 <dialog id="modal"></dialog>
 <div id="control-dialog" class="control-overlay" role="dialog" aria-modal="true" aria-labelledby="control-title" hidden>
@@ -359,6 +410,7 @@
  </div>
 </div>
 <div id="toast" class="toast" hidden></div>
+<div id="scrim" class="scrim" hidden></div>
 
 <script src="/i18n.js?v=remote-library-1"></script>
 <script src="/app.js?v=remote-library-1"></script>

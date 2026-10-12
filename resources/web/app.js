@@ -4,6 +4,42 @@
 
 const $ = (id) => document.getElementById(id);
 
+/* ================= icons (inline SVG sprite, no external assets) ================= */
+const ICON_PATHS = {
+  compass: '<circle cx="12" cy="12" r="9"/><path d="m16 8-3 5-5 3 3-5z"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  library: '<path d="M4 4v16M9 4v16M14 4v16m4-15 4 14"/>',
+  heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/>',
+  download: '<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>',
+  box: '<path d="m12 3 9 5v9l-9 5-9-5V8Zm-9 5 9 5 9-5m-9 5v9M7 5.8l9 5"/>',
+  layers: '<path d="m12 3 10 6-10 6L2 9Zm-10 12 10 6 10-6M2 15l10 6 10-6"/>',
+  git: '<circle cx="6" cy="5" r="3"/><circle cx="6" cy="19" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 8v8m0-2c8 0 12-2 12-5"/>',
+  disk: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 13h18m-5 3h1m-5 0h1"/>',
+  settings: '<path d="m10 3-1 3-3 1-3 3 2 2-2 2 3 3 3 1 1 3h4l1-3 3-1 3-3-2-2 2-2-3-3-3-1-1-3Z"/><circle cx="12" cy="12" r="3"/>',
+  search: '<circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5"/>',
+  bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9m-11 12h4"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  shield: '<path d="m12 2 8 4v6c0 5-8 10-8 10S4 17 4 12V6Zm-4 10 3 3 5-6"/>',
+  check: '<path d="m5 12 4 4L19 6"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  close: '<path d="m6 6 12 12M6 18 18 6"/>',
+  pause: '<path d="M8 4v16M16 4v16"/>',
+  play: '<path d="m7 4 14 8-14 8Z"/>',
+  refresh: '<path d="M20 7v5h-5M4 17v-5h5m-4-5a8 8 0 0 1 14-2l1 2M4 17l1 2a8 8 0 0 0 14-2"/>',
+};
+const icon = (name) =>
+  `<svg viewBox="0 0 24 24" aria-hidden="true">${ICON_PATHS[name] || ICON_PATHS.box}</svg>`;
+function renderIcons(root = document) {
+  root.querySelectorAll("[data-icon]").forEach((el) => {
+    if (!el.dataset.iconDone) {
+      el.innerHTML = icon(el.dataset.icon);
+      el.dataset.iconDone = "1";
+    }
+  });
+}
+
 /* ================= i18n ================= */
 const I18N = {
   en: {
@@ -78,6 +114,9 @@ const I18N = {
     "recovery.recopy": "This copy starts again ({0}). Finished downloads stay.",
     "recovery.pieces": "Continues from saved pieces, not from an exact byte.",
     "recovery.byte": "Continues from the saved point in this file.",
+    "source.direct": "Direct",
+    "source.keyOk": "key set",
+    "source.noKey": "no key",
   },
   ru: {
     "control.pin": "Доступ к панели", "control.pinHelp": "Введите PIN из настроек Switch: Настройки → Web companion.",
@@ -152,6 +191,9 @@ const I18N = {
     "recovery.recopy": "Копирование начинается заново ({0}). Уже скачанное остаётся.",
     "recovery.pieces": "Продолжение с сохранённых частей, не с точного байта.",
     "recovery.byte": "Продолжение с сохранённого места в этом файле.",
+    "source.direct": "Напрямую",
+    "source.keyOk": "ключ задан",
+    "source.noKey": "нет ключа",
   },
 };
 Object.assign(I18N, window.PIPENSX_I18N || {});
@@ -170,7 +212,19 @@ function applyI18n() {
   if (clearUiReady) updateClearButtons();
   $("lang-btn").textContent = lang.toUpperCase();
   $("alerts-state").textContent = t(alertsOn() ? "common.on" : "common.off");
-  if (library) renderLibrary();
+  if (typeof library !== "undefined" && library) renderLibrary();
+  syncSearchPlaceholder();
+}
+function syncSearchPlaceholder() {
+  const el = $("global-search");
+  if (!el) return;
+  const tab = (typeof currentTab === "function") ? currentTab() : "downloads";
+  let ph = t("downloads.search");
+  if (tab === "catalog") ph = t("catalog.search");
+  else if (tab === "library") ph = t("library.search");
+  else if (tab === "logs") ph = t("logs.search");
+  el.placeholder = ph;
+  el.setAttribute("aria-label", ph);
 }
 
 /* ================= theme ================= */
@@ -179,7 +233,8 @@ function applyTheme() {
   const theme = pref === "auto"
     ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : pref;
   document.documentElement.dataset.theme = theme;
-  $("theme-btn").textContent = theme === "dark" ? "🌙" : "☀️";
+  const tb = $("theme-btn");
+  if (tb) tb.innerHTML = icon(theme === "dark" ? "moon" : "sun");
   const sel = $("set-theme");
   if (sel) sel.value = pref;
 }
@@ -279,7 +334,14 @@ async function api(path, options = {}, retryPin = true) {
   options.headers = Object.assign({}, options.headers);
   const sentPin = getPin();
   if (sentPin) options.headers["X-Pipensx-Pin"] = sentPin;
-  const resp = await fetch(path, options);
+  let resp;
+  try {
+    resp = await fetch(path, options);
+  } catch (e) {
+    setConn(false);
+    throw e;
+  }
+  if (resp.ok) setConn(true);
   if (resp.status === 401 && retryPin) {
     const pin = getPin() && getPin() !== sentPin ? getPin() : await requestPin();
     if (pin) {
@@ -348,6 +410,7 @@ function openModal(html) {
   const modal = $("modal");
   modal.innerHTML = html;
   modal.classList.toggle("port-dialog", html.includes('class="modal-body port-editor"'));
+  renderIcons(modal);
   if (!modal.open) modal.showModal();
   modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 }
@@ -362,13 +425,24 @@ function showTab() {
   const active = currentTab();
   for (const tt of tabs) {
     $("view-" + tt).hidden = tt !== active;
-    document.querySelector(`.tab[data-tab="${tt}"]`).classList.toggle("active", tt === active);
+    const nav = document.querySelector(`.nav-item[data-page="${tt}"]`);
+    if (nav) nav.classList.toggle("active", tt === active);
   }
+  closeDrawer();
+  window.scrollTo(0, 0);
+  syncSearchPlaceholder();
+  if (active === "downloads") renderDownloads();
   if (active === "catalog") loadCatalog();
   if (active === "library") loadLibrary();
   if (active === "logs") startLogView();
   else stopLogView();
   if (active === "settings") loadSettings();
+}
+function closeDrawer() {
+  const sb = $("sidebar");
+  if (sb) sb.classList.remove("open");
+  const scrim = $("scrim");
+  if (scrim) scrim.hidden = true;
 }
 window.addEventListener("hashchange", showTab);
 $("empty-browse")?.addEventListener("click", () => { location.hash = "#catalog"; });
@@ -381,24 +455,34 @@ let events = null;
 const speedHist = []; // last N aggregate download speeds for the chart
 const SPEED_HIST_N = 60;
 
+/* Right-panel link state. SSE drives it, but any successful REST call
+   also proves the console is reachable (SSE alone can stall while the
+   REST API answers fine). */
+function setConn(online) {
+  const ac = $("activity-conn");
+  if (ac) ac.textContent = online ? "online" : "offline";
+  const head = document.querySelector(".activity-heading");
+  if (head) head.classList.toggle("offline", !online);
+}
+
 function connectEvents() {
   if (events) events.close();
   events = new EventSource("/api/events");
   events.addEventListener("state", (e) => {
-    $("conn").classList.add("on");
-    $("conn-text").textContent = "online";
+    setConn(true);
     state = JSON.parse(e.data);
     if (state.version) {
-      $("ver-badge").hidden = false;
-      $("ver-badge").textContent = "v" + state.version;
-      $("foot-ver").textContent = "pipensx v" + state.version;
+      const dv = $("device-ver");
+      if (dv) dv.textContent = "v" + state.version;
+      const sv = $("sb-ver");
+      if (sv) sv.textContent = "v" + state.version;
+      if ($("foot-ver")) $("foot-ver").textContent = "pipensx v" + state.version;
     }
     notifyTransitions();
     renderDownloads();
   });
   events.onerror = () => {
-    $("conn").classList.remove("on");
-    $("conn-text").textContent = "offline";
+    setConn(false);
   };
 }
 connectEvents();
@@ -800,7 +884,7 @@ function jobCard(j) {
 }
 
 function filteredTasks() {
-  const q = ($("task-search").value || "").trim().toLowerCase();
+  const q = (($("global-search") && $("global-search").value || "").trim().toLowerCase());
   const f = $("task-filter").value;
   const sort = $("task-sort").value;
   let list = state.tasks.slice();
@@ -875,7 +959,101 @@ function renderDownloads() {
     drawChart();
     $("chart-legend").textContent = `peak ${fmtSpeed(Math.max(...speedHist))}`;
   }
+  syncActivityPanel();
   refreshNotifyRow();
+}
+
+/* Mirrors of live state for the sidebar/activity chrome (visual only). */
+function taskProgress(tt) {
+  const wantedTotal = tt.wantedTotalBytes || 0;
+  const wantedDone = wantedTotal ? Math.min(tt.wantedCompletedBytes || 0, wantedTotal) : 0;
+  if (wantedTotal) return Math.min(100, 100 * wantedDone / wantedTotal);
+  if (tt.fetchProgress != null && tt.status === "Fetching") return Math.min(100, 100 * tt.fetchProgress);
+  if (tt.installTotalBytes && (tt.status === "Installing" || tt.status === "Committing"))
+    return Math.min(100, 100 * tt.installedBytes / tt.installTotalBytes);
+  return tt.totalBytes ? Math.min(100, 100 * tt.completedBytes / tt.totalBytes) : 0;
+}
+function renderMiniQueue() {
+  const box = $("mini-queue");
+  if (!box) return;
+  const active = state.tasks.filter((x) => activeSet.has(x.status));
+  const rest = state.tasks.filter((x) => !activeSet.has(x.status));
+  const top = active.concat(rest).slice(0, 2);
+  if (!top.length) {
+    box.innerHTML = `<div class="mini-empty">${esc(t("downloads.empty"))}</div>`;
+    return;
+  }
+  box.innerHTML = top.map((x) => {
+    const pct = taskProgress(x);
+    return `<div class="mini-task"><div class="mini-task-top">` +
+      `<div class="mini-task-title" title="${esc(x.name || x.id)}">${esc(x.name || x.id)}` +
+      `<small>${esc(x.status)} · ${pct.toFixed(0)}%</small></div></div>` +
+      `<div class="progress-track"><span style="width:${pct}%"></span></div>` +
+      `<div class="progress-meta"><b>${esc(fmtSpeed(x.speedBps || x.installSpeedBps || 0))}</b>` +
+      `<span>${esc(String(x.peers || 0))} peers</span></div></div>`;
+  }).join("");
+}
+/* Sidebar source: current download method. Direct shows nothing else;
+   a debrid provider shows whether its key/URL is set. Rides the live
+   state frame, so no extra request and no PIN prompt. */
+const PROVIDER_NAMES = {
+  torbox: "TorBox", torrserver: "TorrServer",
+  realdebrid: "Real-Debrid", alldebrid: "AllDebrid",
+};
+function renderSource() {
+  const main = $("sb-source"), sub = $("sb-source-status");
+  if (!main) return;
+  const src = state.source;
+  if (!src) {
+    main.textContent = "—";
+    if (sub) { sub.textContent = ""; sub.classList.remove("warn"); }
+    return;
+  }
+  if (src.direct) {
+    main.textContent = t("source.direct");
+    if (sub) { sub.textContent = ""; sub.classList.remove("warn"); }
+    return;
+  }
+  main.textContent = PROVIDER_NAMES[src.provider] || src.provider || "—";
+  if (sub) {
+    sub.textContent = src.keyConfigured ? t("source.keyOk") : t("source.noKey");
+    sub.classList.toggle("warn", !src.keyConfigured);
+  }
+}
+function syncActivityPanel() {
+  try {
+    renderSource();
+    if (state.storage && state.storage.available) {
+      const used = state.storage.totalBytes - state.storage.freeBytes;
+      const pct = (100 * used / state.storage.totalBytes).toFixed(1) + "%";
+      const free = fmtBytes(state.storage.freeBytes);
+      const total = fmtBytes(state.storage.totalBytes);
+      const sbf = $("sb-storage-fill");
+      if (sbf) sbf.style.width = pct;
+      const sbFree = $("sb-storage-free");
+      if (sbFree) sbFree.textContent = free + " " + (lang === "ru" ? "свободно" : "free");
+      const sbText = $("sb-storage-text");
+      if (sbText) sbText.textContent = (lang === "ru" ? "занято " : "used ") + fmtBytes(used) + " · " + total;
+    }
+    const set = (id, src) => {
+      const el = $(id), from = $(src);
+      if (el && from) el.textContent = from.textContent;
+    };
+    set("act-speed", "stat-speed");
+    set("act-storage", "stat-storage");
+    const aq = $("act-queue"), sq = $("stat-queue");
+    if (aq && sq) aq.textContent = sq.textContent;
+    renderMiniQueue();
+  } catch (e) { /* chrome mirrors must never break the main render */ }
+}
+
+function limeColor() {
+  const v = getComputedStyle(document.documentElement).getPropertyValue("--lime").trim();
+  return /^#[0-9a-fA-F]{6}$/.test(v) ? v : "#00c3e3";
+}
+function limeAlpha(hex, a) {
+  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${a})`;
 }
 
 function drawChart() {
@@ -888,22 +1066,30 @@ function drawChart() {
   g.scale(dpr, dpr);
   g.clearRect(0, 0, w, h);
   const max = Math.max(...speedHist, 1);
-  const n = speedHist.length;
+  const lime = limeColor();
   const grad = g.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, "rgba(0,195,227,.45)");
-  grad.addColorStop(1, "rgba(0,195,227,.03)");
+  grad.addColorStop(0, limeAlpha(lime, .45));
+  grad.addColorStop(1, limeAlpha(lime, .03));
   g.beginPath();
   speedHist.forEach((v, i) => {
     const x = (i / Math.max(1, SPEED_HIST_N - 1)) * w;
     const y = h - 4 - (v / max) * (h - 10);
     i === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
   });
-  g.strokeStyle = "#00c3e3"; g.lineWidth = 2; g.stroke();
+  g.strokeStyle = lime; g.lineWidth = 2; g.stroke();
   g.lineTo(w, h); g.lineTo(0, h); g.closePath();
   g.fillStyle = grad; g.fill();
 }
 
-["task-search", "task-filter", "task-sort"].forEach((id) =>
+let searchTimer = null;
+$("global-search").addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    if (currentTab() === "catalog") { if (catalog) applyCatalogFilter(); }
+    else renderDownloads();
+  }, 150);
+});
+["task-filter", "task-sort"].forEach((id) =>
   $(id).addEventListener("input", renderDownloads));
 $("task-filter").addEventListener("change", renderDownloads);
 $("task-sort").addEventListener("change", renderDownloads);
@@ -1186,14 +1372,18 @@ function buildCatalogFilters() {
 }
 function renderCatalogCount() {
   const total = catalog ? catalog.filter(e => e.section === catalogSection).length : 0;
-  const shown = catalogFiltered.length;
-  $("catalog-count").textContent = total
-    ? tf("catalog.count", shown, total)
-    : "";
+  const shown = catalogFiltered.length || total;
+  const text = total ? tf("catalog.count", shown, total) : "";
+  $("catalog-count").textContent = text;
+  const acc = $("activity-catalog-count");
+  if (acc) acc.textContent = total ? String(total) : "—";
+  const ct = $("catalog-time");
+  if (ct) ct.textContent = text || "—";
 }
 
 function applyCatalogFilter() {
-  const q = $("search").value.trim().toLowerCase();
+  const gs = $("global-search");
+  const q = ((gs && gs.value || "").trim().toLowerCase());
   const genre = $("flt-genre").value;
   const year = $("flt-year").value;
   const size = $("flt-size").value;
@@ -1250,7 +1440,7 @@ function appendCatalogChunk() {
       <div class="game-cover-wrap">
         ${e.posterUrl
           ? `<img class="game-cover" loading="lazy" src="${esc(e.posterUrl)}" alt="" onerror="this.remove()">`
-          : `<div class="game-cover-fallback">🎮</div>`}
+          : `<div class="game-cover-fallback">${icon("grid")}</div>`}
         ${healthChip(e)}
         ${e.size ? `<span class="game-size">${esc(fmtBytes(e.size))}</span>` : ""}
       </div>
@@ -1268,15 +1458,11 @@ new IntersectionObserver((entries) => {
   if (entries[0].isIntersecting) appendCatalogChunk();
 }).observe($("catalog-sentinel"));
 
-let searchTimer = null;
-$("search").addEventListener("input", () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => { if (catalog) applyCatalogFilter(); }, 150);
-});
 ["flt-genre", "flt-year", "flt-size", "flt-sort"].forEach((id) =>
   $(id).addEventListener("change", () => { if (catalog) applyCatalogFilter(); }));
 $("flt-reset").addEventListener("click", () => {
-  $("search").value = "";
+  const gs = $("global-search");
+  if (gs) gs.value = "";
   $("flt-genre").value = ""; $("flt-year").value = "";
   $("flt-size").value = ""; $("flt-sort").value = "title";
   if (catalog) applyCatalogFilter();
@@ -1674,10 +1860,30 @@ setInterval(() => { if (currentTab() === "library" && !document.hidden) loadLibr
 applyTheme();
 applyI18n();
 syncAppearanceControls();
+renderIcons();
 showTab();
 refreshNotifyRow();
+$("menu-button")?.addEventListener("click", () => {
+  const sb = $("sidebar");
+  if (!sb) return;
+  const open = !sb.classList.contains("open");
+  sb.classList.toggle("open", open);
+  const scrim = $("scrim");
+  if (scrim) scrim.hidden = !open;
+});
+$("scrim")?.addEventListener("click", closeDrawer);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("sidebar")?.classList.contains("open")) closeDrawer();
+  if (e.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement?.tagName || ""))) {
+    e.preventDefault();
+    $("global-search")?.focus();
+  }
+});
 api("/api/tasks").then((r) => r.json()).then((s) => {
   state = Object.assign(state, s);
   renderDownloads();
 }).catch(() => {});
-window.addEventListener("resize", () => { if (!$("chart-card").hidden) drawChart(); });
+window.addEventListener("resize", () => {
+  if (window.innerWidth > 700) closeDrawer();
+  if (!$("chart-card").hidden) drawChart();
+});

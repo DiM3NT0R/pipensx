@@ -740,6 +740,14 @@ int main() {
         assert(responseBody(resp).find("\"torboxConfigured\":false") !=
                std::string::npos);
         assert(companionSettings.get().torboxApiKey.empty());
+
+        // Live source frame for the companion sidebar: direct swarm here
+        // (torrenting on), TorBox selected, no key stored.
+        resp = request(port, "GET", "/api/tasks");
+        body = responseBody(resp);
+        assert(body.find("\"direct\":true") != std::string::npos);
+        assert(body.find("\"provider\":\"torbox\"") != std::string::npos);
+        assert(body.find("\"keyConfigured\":false") != std::string::npos);
     }
 
     // Torrenting stays off. A configured provider adds the catalog release
@@ -790,6 +798,13 @@ int main() {
         assert(manager.torrentingEnabled() == false);
         assert(resolveCalls->load() == resolvesBefore);
         assert(providerCalls->load() == 1);
+        // ...and the state frame reports the debrid source with its key set.
+        {
+            std::string resp = request(port, "GET", "/api/tasks");
+            std::string body = responseBody(resp);
+            assert(body.find("\"direct\":false") != std::string::npos);
+            assert(body.find("\"keyConfigured\":true") != std::string::npos);
+        }
         manager.setTorboxApiKey("");
         std::string removeError;
         assert(manager.remove(hash, true, removeError));

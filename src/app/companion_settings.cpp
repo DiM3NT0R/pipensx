@@ -32,6 +32,8 @@ const char* catalogFilterJson(CatalogFilter value) {
     return value == CatalogFilter::Games ? "games" : "all";
 }
 
+}  // namespace
+
 const char* debridProviderJson(DebridProviderKind value) {
     switch (value) {
         case DebridProviderKind::TorrServer:
@@ -45,8 +47,6 @@ const char* debridProviderJson(DebridProviderKind value) {
     }
     return "torbox";
 }
-
-}  // namespace
 
 std::string companionSettingsJson(const AppSettingsData& values) {
     Json j;

@@ -15,6 +15,11 @@ namespace pipensx {
 // values. Used by GET /api/settings and as the PATCH response body.
 std::string companionSettingsJson(const AppSettingsData& values);
 
+// Provider id as it appears in companion JSON ("torbox", "torrserver",
+// "realdebrid", "alldebrid"). Shared with the live state frame so the web
+// sidebar and the settings whitelist never spell a provider differently.
+const char* debridProviderJson(DebridProviderKind value);
+
 // Partial update of the companion whitelist. Unknown keys fail. Empty string
 // on torboxApiKey / realdebridApiKey / alldebridApiKey clears. Omitted keys
 // are left alone.
