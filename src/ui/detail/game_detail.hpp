@@ -596,6 +596,9 @@ private:
                     : tr("pipensx/detail/status_paused");
             }
             case DownloadStatus::Completed:
+                if (task.mode == TransferMode::DownloadOnly ||
+                    task.mode == TransferMode::PortInstall)
+                    return tr("pipensx/detail/status_saved_to_sd");
                 return tr("pipensx/detail/status_downloaded");
             case DownloadStatus::Installed:
                 return tr("pipensx/detail/status_installed");
@@ -793,6 +796,11 @@ private:
             if (task->status == DownloadStatus::Error && !task->error.empty())
                 setTextIfChanged(statusLabel_,
                                  withUpdateFailureHint(task->error));
+            else if (task->status == DownloadStatus::Completed &&
+                     (task->mode == TransferMode::DownloadOnly ||
+                      task->mode == TransferMode::PortInstall))
+                setTextIfChanged(statusLabel_,
+                                 tr("pipensx/downloads/status_completed_saved"));
         } else {
             setTextIfChanged(primary_, tr("pipensx/common/install"));
             primary_->setProgress(-1.0f);

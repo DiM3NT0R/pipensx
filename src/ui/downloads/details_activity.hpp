@@ -537,14 +537,9 @@ private:
             setTextIfChanged(status_, tr("pipensx/downloads/status_line",
                                          tr(phaseKey)));
             status_->setTextColor(theme::accent());
-        } else if (task->status == DownloadStatus::Checking ||
-                   task->status == DownloadStatus::Verifying) {
-            setTextIfChanged(status_, tr("pipensx/downloads/status_line",
-                                         taskStatusText(*task)));
-            status_->setTextColor(statusColor(task->status));
         } else {
             setTextIfChanged(status_, tr("pipensx/downloads/status_line",
-                                         downloadStatusLabel(task->status)));
+                                         taskStatusText(*task)));
             status_->setTextColor(statusColor(task->status));
         }
 

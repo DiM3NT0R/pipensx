@@ -568,7 +568,7 @@ private:
         for (const DownloadTask& task : tasks) {
             const std::string hash = lowerAscii(task.id);
             nextTaskStatuses[hash] = task.status;
-            job.request.taskBadges[hash] = badgeForStatus(task.status);
+            job.request.taskBadges[hash] = badgeForStatus(task.status, task.mode);
             const auto before = taskStatuses_.find(hash);
             if (liveStateInitialized_ && installed_ &&
                 task.status == DownloadStatus::Installed &&
@@ -1441,7 +1441,9 @@ private:
         return digits;
     }
 
-    static std::string badgeForStatus(DownloadStatus status) {
+    static std::string badgeForStatus(
+        DownloadStatus status,
+        TransferMode mode = TransferMode::StreamInstall) {
         switch (status) {
             case DownloadStatus::Queued:
                 return tr("pipensx/detail/status_queued");
@@ -1457,6 +1459,9 @@ private:
             case DownloadStatus::Committing:
                 return tr("pipensx/downloads/status_installing");
             case DownloadStatus::Completed:
+                if (mode == TransferMode::DownloadOnly ||
+                    mode == TransferMode::PortInstall)
+                    return tr("pipensx/detail/status_saved_to_sd");
                 return tr("pipensx/downloads/status_completed");
             case DownloadStatus::Installed:
                 return tr("pipensx/downloads/status_installed");

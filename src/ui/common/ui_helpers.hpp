@@ -371,6 +371,14 @@ inline std::string downloadStatusLabel(DownloadStatus status) {
     return tr("pipensx/common/unknown");
 }
 
+inline std::string downloadStatusLabel(const DownloadTask& task) {
+    if (task.status == DownloadStatus::Completed &&
+        (task.mode == TransferMode::DownloadOnly ||
+         task.mode == TransferMode::PortInstall))
+        return tr("pipensx/downloads/status_completed_saved");
+    return downloadStatusLabel(task.status);
+}
+
 inline std::string recoveryNoticeText(const DownloadTask& task) {
     const RecoveryAccount account = recoveryAccountOf(task);
     switch (recoveryNotice(account, recoveryTransferQuiet(task.status))) {
@@ -454,6 +462,10 @@ inline std::string taskStatusText(const DownloadTask& task) {
             return pct > 0 ? withPercent(label, pct) : label;
         }
         case DownloadStatus::Completed:
+            if (task.mode == TransferMode::DownloadOnly ||
+                task.mode == TransferMode::PortInstall)
+                return tr("pipensx/downloads/status_completed_saved");
+            return downloadStatusLabel(task.status);
         case DownloadStatus::Installed:
         case DownloadStatus::Queued:
         case DownloadStatus::Removing:
