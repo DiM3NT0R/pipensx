@@ -37,6 +37,7 @@ bug_reports/
 .codex/
 .codex-remote-attachments/
 .tmp/
+dist/
 /rutracker-*.xml.xz
 /resources/catalog/
 !/resources/catalog/
