@@ -1,5 +1,6 @@
 #include "install/content_meta.hpp"
 #include "install/placeholder_grow.hpp"
+#include "install/content_registration.hpp"
 #include "install/ticket_rights.hpp"
 #include "install_backend.hpp"
 
@@ -799,8 +800,7 @@ public:
             return false;
         }
         if (!metaContent->existing && !metaContent->registered) {
-            Result rc = ncmContentStorageRegister(
-                &storage_, &metaContent->id, &metaContent->placeholder);
+            Result rc = registerContent(*metaContent);
             if (R_FAILED(rc)) {
                 errorResult("Unable to register CNMT NCA", rc);
                 return false;
@@ -888,8 +888,7 @@ public:
                                                    &content.placeholder);
                 continue;
             }
-            rc = ncmContentStorageRegister(&storage_, &content.id,
-                                           &content.placeholder);
+            rc = registerContent(content);
             if (R_FAILED(rc)) {
                 errorResult("Unable to register installed content", rc);
                 return false;
@@ -1389,6 +1388,38 @@ public:
     }
 
 private:
+    Result registerContent(Content& content) {
+        return registerContentWithDirectoryRecovery(
+            [&]() -> uint32_t {
+                return ncmContentStorageRegister(&storage_, &content.id,
+                                                &content.placeholder);
+            },
+            [&](bool& exists) -> uint32_t {
+                Result rc = ncmContentStorageHasPlaceHolder(
+                    &storage_, &exists, &content.placeholder);
+                log_msg("[install] register path missing content=%s placeholder=%s "
+                        "source_exists=%d query=0x%08x\n",
+                        hexBytes(content.id.c, sizeof(content.id.c)).c_str(),
+                        hexBytes(reinterpret_cast<const uint8_t*>(&content.placeholder),
+                                 sizeof(content.placeholder)).c_str(), exists ? 1 : 0, rc);
+                return rc;
+            },
+            [&]() -> uint32_t {
+                // CreatePlaceHolder ensures the registered-content parent for
+                // this content ID. Use a fresh, empty scratch file, never the
+                // original placeholder holding the downloaded NCA.
+                NcmPlaceHolderId scratch {};
+                Result rc = ncmContentStorageGeneratePlaceHolderId(&storage_, &scratch);
+                if (R_FAILED(rc)) return rc;
+                rc = ncmContentStorageCreatePlaceHolder(&storage_, &content.id, &scratch, 0);
+                if (R_FAILED(rc)) return rc;
+                Result deleteRc = ncmContentStorageDeletePlaceHolder(&storage_, &scratch);
+                log_msg("[install] register destination restored content=%s cleanup=0x%08x\n",
+                        hexBytes(content.id.c, sizeof(content.id.c)).c_str(), deleteRc);
+                return deleteRc;
+            });
+    }
+
     bool benchmarkMode_ = false;
     // PERF_PLAN 3.4: parse the CNMT as soon as its NCA completes, so delta
     // fragments that follow it in the PFS0 can be skipped by shouldSkipFile

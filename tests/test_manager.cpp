@@ -1112,6 +1112,35 @@ int main() {
         assert(manager.remove(tasks[0].id, true, error));
     }
 
+    // A rejected start has not touched downloaded data. It must retain the
+    // trusted resume map, including after saving/reloading the error task.
+    {
+        const std::string rejectedRoot = std::string(root) + "/rejected-start";
+        DownloadManager manager(rejectedRoot, true);
+        std::string rejectedId;
+        assert(manager.importTorrent(downloadOnlySource,
+                                     TransferMode::DownloadOnly,
+                                     rejectedId, error));
+        for (int i = 0; i < 500; ++i) {
+            if (manager.snapshot()[0].status == DownloadStatus::Error)
+                break;
+            usleep(10000);
+        }
+        manager.shutdown();
+        auto task = manager.snapshot()[0];
+        assert(task.status == DownloadStatus::Error);
+        assert(task.error.find("Torrenting is off") != std::string::npos);
+        assert(task.resumeBitfield == std::vector<uint8_t>(1, 0));
+        assert(manager.save(error));
+        DownloadManager reloaded(rejectedRoot, false);
+        assert(reloaded.snapshot()[0].resumeBitfield ==
+               std::vector<uint8_t>(1, 0));
+        assert(reloaded.resume(rejectedId, error));
+        assert(reloaded.snapshot()[0].status == DownloadStatus::Queued);
+        assert(reloaded.snapshot()[0].resumeBitfield ==
+               std::vector<uint8_t>(1, 0));
+    }
+
     // Fast resume with a live worker: claiming the task persists the disarmed
     // state, an orderly teardown (pause) arms it again.
     {

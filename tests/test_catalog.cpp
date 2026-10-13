@@ -259,7 +259,7 @@ void testResolveFromPresetInfoDict() {
     unlink(path.c_str());
 }
 
-void testHttpsCacheWinsMetadataRace() {
+void testHttpsCacheWinsMetadataRace(bool withExistingTracker = false) {
     const std::string info =
         "d6:lengthi1e4:name8:test.nsp12:piece lengthi16384e6:pieces20:"
         "01234567890123456789e";
@@ -280,9 +280,10 @@ void testHttpsCacheWinsMetadataRace() {
             MagnetSpec spec;
             assert(MagnetResolver::parse(magnet, spec, error));
             assert(hash == spec.infoHashHex);
-            std::vector<uint8_t> torrent;
-            assert(MagnetResolver::buildTorrent(spec, infoDict, torrent,
-                                                error));
+            const std::string raw = withExistingTracker
+                ? "d8:announce25:http://tracker.test/annou7:comment4:keep4:info" + info + "8:url-list22:https://seed.test/filee"
+                : "d4:info" + info + "e";
+            std::vector<uint8_t> torrent(raw.begin(), raw.end());
             std::ofstream out(candidatePath,
                               std::ios::binary | std::ios::trunc);
             out.write(reinterpret_cast<const char*>(torrent.data()),
@@ -313,6 +314,12 @@ void testHttpsCacheWinsMetadataRace() {
     metainfo_t parsed;
     assert(metainfo_parse(body.data(), body.size(), &parsed));
     assert(std::memcmp(parsed.info_hash, spec.infoHash, 20) == 0);
+    assert(parsed.num_trackers == (withExistingTracker ? 5u : 4u));
+    if (withExistingTracker) {
+        assert(parsed.num_web_seeds == 1);
+        assert(std::string(parsed.web_seeds[0]) == "https://seed.test/file");
+        assert(std::string(body.begin(), body.end()).find("7:comment4:keep") != std::string::npos);
+    }
     metainfo_free(&parsed);
     assert(access((std::string(pathTemplate) + ".cache-candidate").c_str(),
                   F_OK) != 0);
@@ -2992,6 +2999,7 @@ int main() {
     testInfoDictParsing();
     testResolveFromPresetInfoDict();
     testHttpsCacheWinsMetadataRace();
+    testHttpsCacheWinsMetadataRace(true);
     testHttpsCacheTorrentGetsFallbackTrackers();
     testRaceUserCancelAbortsBoth();
     testTorrentConstruction();

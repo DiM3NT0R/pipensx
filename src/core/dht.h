@@ -52,6 +52,9 @@ void dht_engine_set_cache_path(const char *path);
  * not cold-bootstrap. 0 = stop immediately (tests). Default: 90000.
  */
 void dht_engine_set_idle_grace_ms(int ms);
+/* Stop the engine and wait for its idle helper threads during process exit.
+ * Returns 0 without changing state if any attachment is still live. */
+int dht_engine_shutdown(void);
 
 /*
  * Cache file codec, exposed for tests. Format: "PXD1" magic, 20-byte node

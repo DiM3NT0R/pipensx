@@ -179,6 +179,29 @@ static void test_idle_grace(void) {
     dht_engine_set_idle_grace_ms(0);
 }
 
+/* Application teardown must end the shared engine without waiting for its
+   production idle grace (90 seconds) and join its idle-stop helper. */
+static void test_explicit_engine_shutdown(void) {
+    dht_engine_set_idle_grace_ms(90000);
+    uint8_t hash[20];
+    memset(hash, 0xA6, sizeof(hash));
+    dht_session_t *s = dht_attach(hash, 51413);
+    if (!s) {
+        dht_engine_set_idle_grace_ms(0);
+        puts("test_explicit_engine_shutdown skipped: UDP 51413 unavailable");
+        return;
+    }
+    assert(!dht_engine_shutdown()); /* live sessions are left intact */
+    assert(dht_shared_running());
+    dht_detach(s);
+    assert(dht_shared_running()); /* idle grace normally keeps it alive */
+    assert(dht_engine_shutdown());
+    assert(!dht_shared_running());
+    assert(port_is_free(DHT_SHARED_PORT));
+    assert(atomic_load(&g_idle_stoppers) == 0);
+    dht_engine_set_idle_grace_ms(0);
+}
+
 int main(void) {
     /* Production default is 90s; tests that assert a free port after the
        last detach need the engine to stop immediately. */
@@ -188,6 +211,7 @@ int main(void) {
     test_lifecycle();
     test_idle_grace();
     test_concurrent_attach_detach();
+    test_explicit_engine_shutdown();
     puts("test_dht_shared: all tests passed");
     return 0;
 }

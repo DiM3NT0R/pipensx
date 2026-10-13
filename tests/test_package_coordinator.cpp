@@ -124,7 +124,19 @@ int main() {
         // F5: the liveness marker tracks the same safe point while the
         // stream is live.
         pipensx::install::InstallMarker marker;
-        assert(pipensx::install::loadInstallMarker(markerPath, marker));
+        // The journal rename precedes the marker update on the worker.
+        // Observing a durable journal does not mean the matching marker has
+        // been published yet; wait for its first non-zero checkpoint too.
+        bool markerReady = false;
+        for (int spins = 0; spins < 3000; ++spins) {
+            if (pipensx::install::loadInstallMarker(markerPath, marker) &&
+                marker.consumed > 0) {
+                markerReady = true;
+                break;
+            }
+            usleep(10000);
+        }
+        assert(markerReady);
         assert(marker.taskId == taskId);
         assert(marker.packageId == "game.nsp");
         assert(marker.consumed > 0);

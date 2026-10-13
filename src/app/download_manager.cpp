@@ -2592,14 +2592,10 @@ void DownloadManager::schedulerMain() {
         claim.packagesInstalled = task->packagesInstalled;
         claim.fileSelection = task->fileSelection;
         claim.initialPeers = task->initialPeers;
-        // Fast resume: consume the trusted bitfield and persist the disarmed
-        // state before the engine touches anything — a crash before the
-        // first checkpoint below falls back to a full scan.
-        claim.resumeBitfield = std::move(task->resumeBitfield);
-        task->resumeBitfield.clear();
-        // The engine holds the trusted bitfield. The state file does not,
-        // until the next checkpoint arms it again — a crash in between
-        // correctly falls back to a full scan.
+        // Claim a snapshot without consuming the trusted map yet. Rejected
+        // starts (disabled torrenting, unreadable metadata, coordinator
+        // errors) never touch the engine and must retain fast resume.
+        claim.resumeBitfield = task->resumeBitfield;
         task->recoveryTrustedClaim = !claim.resumeBitfield.empty();
         task->recoveryTrusted = task->recoveryTrustedClaim;
         persistState(lock);
@@ -3040,6 +3036,16 @@ void DownloadManager::runTask(RunnerSlot* slot, ClaimedTask claim) {
             task->packageCount = coordinator->packageCount();
     }
 
+    // Only disarm once setup has succeeded and the engine is about to touch
+    // storage. A subsequent crash still requires a scan until a checkpoint
+    // or orderly teardown supplies a new verified map.
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        if (DownloadTask* task = findLocked(activeId)) {
+            task->resumeBitfield.clear();
+            persistState(lock);
+        }
+    }
     torrent_t* torrent = torrent_create_ex(
         &metainfo, static_cast<uint16_t>(kBasePeerPort + slot->slotIndex),
         dataPath.c_str(), &options);

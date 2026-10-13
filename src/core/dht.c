@@ -179,6 +179,7 @@ static struct {
 
 /* Keep the routing table warm across magnet → torrent (file picker). */
 static int g_idle_grace_ms = 90000;
+static atomic_uint g_idle_stoppers;
 
 void dht_engine_set_idle_grace_ms(int ms) {
     if (ms < 0)
@@ -421,14 +422,40 @@ static void dht_engine_stop(void) {
     g_dht.running = 0;
 }
 
+/* Stop all process-owned DHT workers before the Switch NRO exits. */
+int dht_engine_shutdown(void) {
+    pthread_mutex_lock(&g_dht.lifecycle_mu);
+    if (g_dht.refcount != 0) {
+        int active = g_dht.refcount;
+        pthread_mutex_unlock(&g_dht.lifecycle_mu);
+        log_msg("[dht] shutdown deferred: %d live sessions\n", active);
+        return 0;
+    }
+    g_dht.idle_gen++;
+    g_idle_grace_ms = 0;
+    if (g_dht.running)
+        dht_engine_stop();
+    pthread_mutex_unlock(&g_dht.lifecycle_mu);
+
+    /* Idle-stop helpers are short-lived but detached. Wait for any cancelled
+       helpers to observe the generation change and finish before process exit. */
+    while (atomic_load(&g_idle_stoppers) != 0) {
+        struct timespec ts = {0, 1000000L};
+        nanosleep(&ts, NULL);
+    }
+    return 1;
+}
+
 static void *dht_idle_stop_main(void *arg) {
     int gen = (int)(intptr_t)arg;
     int grace;
     pthread_mutex_lock(&g_dht.lifecycle_mu);
     grace = g_idle_grace_ms;
     pthread_mutex_unlock(&g_dht.lifecycle_mu);
-    if (grace <= 0)
+    if (grace <= 0) {
+        atomic_fetch_sub(&g_idle_stoppers, 1);
         return NULL;
+    }
     uint64_t start = now_ms();
     while (now_ms() - start < (uint64_t)grace) {
         struct timespec ts = {0, 100000000L}; /* 100 ms */
@@ -437,8 +464,10 @@ static void *dht_idle_stop_main(void *arg) {
         int cancel = (g_dht.refcount > 0 || g_dht.idle_gen != gen ||
                       !g_dht.running);
         pthread_mutex_unlock(&g_dht.lifecycle_mu);
-        if (cancel)
+        if (cancel) {
+            atomic_fetch_sub(&g_idle_stoppers, 1);
             return NULL;
+        }
     }
     pthread_mutex_lock(&g_dht.lifecycle_mu);
     if (g_dht.refcount == 0 && g_dht.idle_gen == gen && g_dht.running) {
@@ -446,6 +475,7 @@ static void *dht_idle_stop_main(void *arg) {
         dht_engine_stop();
     }
     pthread_mutex_unlock(&g_dht.lifecycle_mu);
+    atomic_fetch_sub(&g_idle_stoppers, 1);
     return NULL;
 }
 
@@ -510,11 +540,14 @@ void dht_detach(dht_session_t *s) {
             dht_engine_persist_cache();
             int gen = ++g_dht.idle_gen;
             pthread_t idle;
+            atomic_fetch_add(&g_idle_stoppers, 1);
             if (pthread_create(&idle, NULL, dht_idle_stop_main,
-                               (void*)(intptr_t)gen) == 0)
+                               (void*)(intptr_t)gen) == 0) {
                 pthread_detach(idle);
-            else
+            } else {
+                atomic_fetch_sub(&g_idle_stoppers, 1);
                 dht_engine_stop();
+            }
         }
     }
     int sessions = g_dht.refcount;

@@ -1,5 +1,6 @@
 #include "app/app_settings.hpp"
 #include "app/catalog_service.hpp"
+#include "app/catalog_refresh.hpp"
 #include "app/companion_settings.hpp"
 #include "app/download_manager.hpp"
 #include "app/game_metadata_service.hpp"
@@ -682,8 +683,8 @@ int main(int argc, char** argv) {
         };
         auto initialData = std::make_shared<InitialDataLoad>();
         // Parse cache/bundle off-thread so it overlaps DownloadManager and the
-        // installed-title scan. The UI must not appear until this is adopted:
-        // otherwise Games opens empty with "catalog updating…" for ~8s.
+        // installed-title scan. The first frame need not wait for this disk
+        // work; the main loop publishes the completed snapshots later.
         ThreadJoiner initialDataLoader{std::thread([&catalog, &metadata,
                                                     initialData] {
             std::thread metadataThread([&metadata, initialData] {
@@ -958,22 +959,11 @@ int main(int argc, char** argv) {
                 return ok && refreshError.empty();
             });
 
-        startupStage("initial catalog/metadata adopt");
-        if (initialDataLoader.thread.joinable())
-            initialDataLoader.thread.join();
-        if (initialData->catalogOk) {
-            catalog.adopt(std::move(initialData->catalog));
-        } else if (!initialData->catalogError.empty()) {
-            diagnostic_error("catalog", "startup_load", "error=%s",
-                             initialData->catalogError.c_str());
-        }
-        if (initialData->metadataOk) {
-            metadata.adopt(std::move(initialData->metadata));
-        } else if (!initialData->metadataError.empty()) {
-            diagnostic_error("metadata", "startup_load", "error=%s",
-                             initialData->metadataError.c_str());
-        }
-        startupStage("initial data published");
+        // Keep the catalogue tab from starting a redundant network refresh
+        // against the intentionally empty startup snapshots. The lease is
+        // released after the parsed cache has been adopted on the UI thread.
+        const bool initialCatalogLease =
+            pipensx::tryBeginCatalogRefresh();
 
         startupStage("MainActivity construction");
         auto* activity = new MainActivity(&manager, &catalog, &metadata,
@@ -1166,8 +1156,32 @@ int main(int argc, char** argv) {
         bool previousTransferActive = false;
         bool imageInstallActive = false;
         bool updateBadgeApplied = false;
+        bool initialDataPublished = false;
         std::shared_ptr<const GameMetadataIndexSnapshot> remoteMetadata;
         while (true) {
+            if (!initialDataPublished &&
+                initialData->ready.load(std::memory_order_acquire)) {
+                startupStage("initial catalog/metadata adopt");
+                if (initialDataLoader.thread.joinable())
+                    initialDataLoader.thread.join();
+                if (initialData->catalogOk) {
+                    catalog.adopt(std::move(initialData->catalog));
+                } else if (!initialData->catalogError.empty()) {
+                    diagnostic_error("catalog", "startup_load", "error=%s",
+                                     initialData->catalogError.c_str());
+                }
+                if (initialData->metadataOk) {
+                    metadata.adopt(std::move(initialData->metadata));
+                } else if (!initialData->metadataError.empty()) {
+                    diagnostic_error("metadata", "startup_load", "error=%s",
+                                     initialData->metadataError.c_str());
+                }
+                if (initialCatalogLease)
+                    pipensx::endCatalogRefresh();
+                initialDataPublished = true;
+                startupStage("initial data published");
+                activity->refreshLoadedData();
+            }
             const auto publishedMetadata = metadata.sharedIndex();
             if (publishedMetadata != remoteMetadata) {
                 remoteMetadata = publishedMetadata;
@@ -1557,6 +1571,8 @@ int main(int argc, char** argv) {
         webServer.shutdown();
         updater.shutdown();
         manager.shutdown();
+        if (!dht_engine_shutdown())
+            diagnostic_error("dht", "shutdown", "sessions remain after manager stop");
         performance.setActive(false);
     } catch (const std::exception& error) {
         log_msg("[crash] exception at stage '%s': %s\n",

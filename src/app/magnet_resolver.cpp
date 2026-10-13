@@ -22,6 +22,7 @@ extern "C" {
 #include <cstring>
 #include <fstream>
 #include <mutex>
+#include <map>
 #include <poll.h>
 #include <sys/socket.h>
 #include <thread>
@@ -136,6 +137,63 @@ std::vector<std::string> rutrackerTrackerCandidates(
     return urls;
 }
 
+// Cache torrents often contain only info. Keep every original top-level field
+// (including web seeds) and the exact info bytes; announce data is outside SHA-1.
+bool normalizeCachedTorrent(const std::string& path, const MagnetSpec& spec,
+                            std::string& error) {
+    std::ifstream input(path, std::ios::binary);
+    std::vector<uint8_t> body((std::istreambuf_iterator<char>(input)),
+                              std::istreambuf_iterator<char>());
+    if (!torrentBodyMatchesInfoHash(body, spec.infoHashHex, error))
+        return false;
+    metainfo_t parsed;
+    if (!metainfo_parse(body.data(), body.size(), &parsed))
+        return false;
+    std::vector<std::string> trackers = rutrackerTrackerCandidates(spec.trackerUrl);
+    for (uint32_t i = 0; i < parsed.num_trackers; ++i) {
+        std::string url = parsed.trackers[i];
+        if (std::find(trackers.begin(), trackers.end(), url) == trackers.end())
+            trackers.push_back(std::move(url));
+    }
+    metainfo_free(&parsed);
+    const char* cursor = reinterpret_cast<const char*>(body.data()) + 1;
+    const char* end = reinterpret_cast<const char*>(body.data()) + body.size();
+    std::map<std::string, std::string> fields;
+    const char* key;
+    size_t keySize;
+    be_node_t value;
+    while (be_dict_next(&cursor, end, &key, &keySize, &value))
+        fields[std::string(key, keySize)] = std::string(value.buf, value.raw_len);
+    auto encodeString = [](const std::string& value) {
+        return std::to_string(value.size()) + ":" + value;
+    };
+    if (!fields.count("announce"))
+        fields["announce"] = encodeString(trackers.front());
+    std::string list = "l";
+    for (const auto& url : trackers)
+        list += "l" + encodeString(url) + "e";
+    fields["announce-list"] = list + "e";
+    std::string encoded = "d";
+    for (const auto& field : fields)
+        encoded += encodeString(field.first) + field.second;
+    encoded += "e";
+    std::vector<uint8_t> normalized(encoded.begin(), encoded.end());
+    if (!torrentBodyMatchesInfoHash(normalized, spec.infoHashHex, error))
+        return false;
+    input.close();
+    // This is a private candidate file; publication remains the race winner's
+    // atomic rename below. A failed write never replaces the user's torrent.
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    output.write(encoded.data(), static_cast<std::streamsize>(encoded.size()));
+    output.flush();
+    if (!output.good()) {
+        error = "Unable to normalize cached torrent trackers.";
+        return false;
+    }
+    log_msg("[magnet] cache trackers merged: %zu\n", trackers.size());
+    return true;
+}
+
 bool containsCaseInsensitive(const char* text, const char* needle) {
     if (!text || !needle || !*needle)
         return false;
@@ -231,8 +289,9 @@ bool writeTorrentAtomic(const std::string& path,
 void runDhtSearch(const uint8_t infoHash[20],
                   std::atomic<bool>& cancelled,
                   std::atomic<bool>& stop,
+                  std::atomic<bool>& sourceWon,
                   DhtSearch& search) {
-    if (cancelled || stop)
+    if (cancelled || stop || sourceWon)
         return;
     /* Pure lookup (announce port 0) on the shared engine: when a download is
        already running the resolver joins its warm routing table instead of
@@ -243,7 +302,7 @@ void runDhtSearch(const uint8_t infoHash[20],
         return;
     }
     uint64_t deadline = now_ms() + kDhtSearchTimeoutMs;
-    while (!cancelled && !stop && now_ms() < deadline &&
+    while (!cancelled && !stop && !sourceWon && now_ms() < deadline &&
            dhtPeerCount(search) < kDhtTargetPeers) {
         uint8_t found[32][6];
         int count = dht_session_poll(session, found, 32);
@@ -886,57 +945,6 @@ std::vector<std::string> rutrackerFallbackTrackers() {
             "http://bt4.t-ru.org/ann?magnet"};
 }
 
-/* Publish an HTTPS-cache torrent body (#94): itorrents.net serves
-   hash-verified but tracker-less metadata, so renaming the cache candidate
-   verbatim left the download DHT-only and starved the swarm. Rebuild the
-   torrent through buildTorrent to bake the RuTracker mirror announce-list
-   in — the same enrichment the swarm path gets. buildTorrent re-checks the
-   info-hash and the safety parse, so a body that somehow fails the rebuild
-   falls back to the old verbatim rename rather than failing the resolve. */
-bool publishCacheTorrent(const MagnetSpec& spec,
-                         const std::string& cachePath,
-                         const std::string& path,
-                         std::string& error) {
-    std::ifstream input(cachePath, std::ios::binary);
-    if (!input) {
-        error = "Unable to read the cached torrent metadata.";
-        return false;
-    }
-    std::vector<uint8_t> body((std::istreambuf_iterator<char>(input)),
-                              std::istreambuf_iterator<char>());
-    const char* cursor = reinterpret_cast<const char*>(body.data());
-    const char* end = body.empty() ? cursor : cursor + body.size();
-    be_node_t root;
-    if (body.empty() || !be_decode(&cursor, end, &root) ||
-        root.type != BE_DICT || cursor != end) {
-        error = "Cached torrent metadata is malformed.";
-        return false;
-    }
-    be_node_t info;
-    if (!be_dict_get(root.buf, root.buf + root.raw_len, "info", 4, &info)) {
-        error = "Cached torrent metadata has no info dictionary.";
-        return false;
-    }
-    std::vector<uint8_t> infoDict(info.buf, info.buf + info.raw_len);
-    std::vector<uint8_t> enriched;
-    std::string buildError;
-    if (!MagnetResolver::buildTorrent(spec, infoDict, enriched,
-                                      buildError)) {
-        log_msg("[magnet] https-cache tracker enrichment failed (%s); "
-                "publishing raw cache body\n",
-                buildError.c_str());
-        if (rename(cachePath.c_str(), path.c_str()) == 0)
-            return true;
-        error = "Unable to publish cached torrent metadata.";
-        return false;
-    }
-    if (writeTorrentAtomic(path, enriched, error)) {
-        log_msg("[magnet] https-cache torrent enriched with fallback "
-                "trackers\n");
-        return true;
-    }
-    return false;
-}
 
 bool MagnetResolver::parse(const std::string& uri, MagnetSpec& spec,
                            std::string& error) {
@@ -1103,7 +1111,7 @@ bool MagnetResolver::resolveToFile(const std::string& uri,
         };
         // itorrents.net is the only HTTPS metadata source, and on a network
         // that blocks BitTorrent it is the only resolve path at all. A single
-        // transient timeout (30s curl timeout inside a 90s race) must not kill
+        // transient timeout (10s curl timeout inside a 90s race) must not kill
         // it: retry once on timeout. Anything else (404, hash mismatch) is
         // definitive and returns immediately.
         for (int attempt = 0; attempt < 2; ++attempt) {
@@ -1113,7 +1121,9 @@ bool MagnetResolver::resolveToFile(const std::string& uri,
                                         cacheError)
                           : fetchTorrentByInfoHash(spec.infoHashHex, cachePath,
                                                    stop, cacheError);
-            if (ok && !cancelled.load(std::memory_order_relaxed)) {
+            if (ok && !stop())
+                ok = normalizeCachedTorrent(cachePath, spec, cacheError);
+            if (ok && !cancelled.load(std::memory_order_relaxed) && !stop()) {
                 int expected = 0;
                 if (winner.compare_exchange_strong(expected, 1)) {
                     cacheOk.store(true, std::memory_order_relaxed);
@@ -1143,8 +1153,10 @@ bool MagnetResolver::resolveToFile(const std::string& uri,
         progress({MagnetProgress::Stage::FindingPeers});
     DhtSearch dhtSearch;
     std::atomic<bool> dhtStop{false};
-    std::thread dhtThread([&spec, &cancelled, &dhtStop, &dhtSearch] {
-        runDhtSearch(spec.infoHash, cancelled, dhtStop, dhtSearch);
+    std::thread dhtThread([&spec, &cancelled, &dhtStop, &stopWorkers,
+                           &dhtSearch] {
+        runDhtSearch(spec.infoHash, cancelled, dhtStop, stopWorkers,
+                     dhtSearch);
     });
     /* The search now outlives the tracker phase, so every exit path below has
        to stop and join it. */
@@ -1211,16 +1223,13 @@ bool MagnetResolver::resolveToFile(const std::string& uri,
         return added;
     };
 
-    /* "Not registered" is authoritative — nothing left to look for. Peers,
-       on the other hand, are not an answer: a tracker's whole peer list can
-       be unreachable (blocked network, every peer NATed), and then the DHT is
-       the only other source we have. So the search keeps running alongside
-       the metadata workers and every retry round merges what it found. When
-       the trackers gave us nothing at all there is nothing to run alongside,
-       so wait for it here. */
-    if (sawNotRegistered || raceStop.requested())
+    /* A tracker rejection only describes that tracker's index, not DHT.
+       Stale catalog hashes can still have live DHT peers (confirmed on
+       Switch). Keep discovery alive while the HTTPS cache races it; stop
+       only when another source won or the user cancelled. */
+    if (raceStop.requested())
         dhtStop.store(true);
-    if (peers.empty() || sawNotRegistered)
+    if (peers.empty())
         dhtThread.join();
     mergeDht();
     uint32_t peerCount = static_cast<uint32_t>(peers.size() / 6);
@@ -1258,7 +1267,9 @@ bool MagnetResolver::resolveToFile(const std::string& uri,
         peerCount = static_cast<uint32_t>(peers.size() / 6);
     }
 
-    uint64_t deadline = now_ms() + kOverallTimeoutMs;
+    // The budget includes tracker/DHT discovery, not another 90 seconds
+    // after discovery has already consumed up to a minute.
+    uint64_t deadline = raceStartedMs + kOverallTimeoutMs;
     std::mutex mutex;
     uint32_t nextPeer = 0;
     bool resolved = false;
@@ -1473,7 +1484,9 @@ bool MagnetResolver::resolveToFile(const std::string& uri,
     bool ok = false;
     if (!cancelled.load(std::memory_order_relaxed) &&
         winner.load(std::memory_order_relaxed) == 1 && cacheOk.load()) {
-        ok = publishCacheTorrent(spec, cachePath, path, error);
+        ok = rename(cachePath.c_str(), path.c_str()) == 0;
+        if (!ok)
+            error = "Unable to publish cached torrent metadata.";
         /* Swarm workers may have handshake-verified sockets even when the
            HTTPS cache won the metadata race — keep those endpoints. */
     } else if (!cancelled.load(std::memory_order_relaxed) && swarmOk &&

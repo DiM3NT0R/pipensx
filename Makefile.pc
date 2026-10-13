@@ -777,3 +777,7 @@ clean:
 $(BUILD_DIR)/tests/test_remote_archive: tests/test_remote_archive.cpp tests/zip_fixture.hpp $(BUILD_DIR)/src/app/remote_archive.o
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -Isrc -o $@ $(filter-out tests/zip_fixture.hpp,$^) -lz
+
+$(BUILD_DIR)/tests/test_content_registration: tests/test_content_registration.cpp src/install/content_registration.hpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -Isrc -o $@ $< $(LDFLAGS)
