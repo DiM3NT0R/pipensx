@@ -131,10 +131,8 @@ std::vector<std::string> rutrackerTrackerCandidates(
             urls.push_back(url);
     };
     add(original);
-    add("http://bt.t-ru.org/ann?magnet");
-    add("http://bt2.t-ru.org/ann?magnet");
-    add("http://bt3.t-ru.org/ann?magnet");
-    add("http://bt4.t-ru.org/ann?magnet");
+    for (const std::string& mirror : rutrackerFallbackTrackers())
+        add(mirror);
     return urls;
 }
 
@@ -879,6 +877,67 @@ bool httpsCacheErrorRetryable(const std::string& error) {
     return error.find("imeout") != std::string::npos;
 }
 
+// The canonical RuTracker announce mirrors. Injected as a fallback pool
+// wherever a torrent ends up with no trackers at all (#94).
+std::vector<std::string> rutrackerFallbackTrackers() {
+    return {"http://bt.t-ru.org/ann?magnet",
+            "http://bt2.t-ru.org/ann?magnet",
+            "http://bt3.t-ru.org/ann?magnet",
+            "http://bt4.t-ru.org/ann?magnet"};
+}
+
+/* Publish an HTTPS-cache torrent body (#94): itorrents.net serves
+   hash-verified but tracker-less metadata, so renaming the cache candidate
+   verbatim left the download DHT-only and starved the swarm. Rebuild the
+   torrent through buildTorrent to bake the RuTracker mirror announce-list
+   in — the same enrichment the swarm path gets. buildTorrent re-checks the
+   info-hash and the safety parse, so a body that somehow fails the rebuild
+   falls back to the old verbatim rename rather than failing the resolve. */
+bool publishCacheTorrent(const MagnetSpec& spec,
+                         const std::string& cachePath,
+                         const std::string& path,
+                         std::string& error) {
+    std::ifstream input(cachePath, std::ios::binary);
+    if (!input) {
+        error = "Unable to read the cached torrent metadata.";
+        return false;
+    }
+    std::vector<uint8_t> body((std::istreambuf_iterator<char>(input)),
+                              std::istreambuf_iterator<char>());
+    const char* cursor = reinterpret_cast<const char*>(body.data());
+    const char* end = body.empty() ? cursor : cursor + body.size();
+    be_node_t root;
+    if (body.empty() || !be_decode(&cursor, end, &root) ||
+        root.type != BE_DICT || cursor != end) {
+        error = "Cached torrent metadata is malformed.";
+        return false;
+    }
+    be_node_t info;
+    if (!be_dict_get(root.buf, root.buf + root.raw_len, "info", 4, &info)) {
+        error = "Cached torrent metadata has no info dictionary.";
+        return false;
+    }
+    std::vector<uint8_t> infoDict(info.buf, info.buf + info.raw_len);
+    std::vector<uint8_t> enriched;
+    std::string buildError;
+    if (!MagnetResolver::buildTorrent(spec, infoDict, enriched,
+                                      buildError)) {
+        log_msg("[magnet] https-cache tracker enrichment failed (%s); "
+                "publishing raw cache body\n",
+                buildError.c_str());
+        if (rename(cachePath.c_str(), path.c_str()) == 0)
+            return true;
+        error = "Unable to publish cached torrent metadata.";
+        return false;
+    }
+    if (writeTorrentAtomic(path, enriched, error)) {
+        log_msg("[magnet] https-cache torrent enriched with fallback "
+                "trackers\n");
+        return true;
+    }
+    return false;
+}
+
 bool MagnetResolver::parse(const std::string& uri, MagnetSpec& spec,
                            std::string& error) {
     spec = {};
@@ -1414,9 +1473,7 @@ bool MagnetResolver::resolveToFile(const std::string& uri,
     bool ok = false;
     if (!cancelled.load(std::memory_order_relaxed) &&
         winner.load(std::memory_order_relaxed) == 1 && cacheOk.load()) {
-        ok = rename(cachePath.c_str(), path.c_str()) == 0;
-        if (!ok)
-            error = "Unable to publish cached torrent metadata.";
+        ok = publishCacheTorrent(spec, cachePath, path, error);
         /* Swarm workers may have handshake-verified sockets even when the
            HTTPS cache won the metadata race — keep those endpoints. */
     } else if (!cancelled.load(std::memory_order_relaxed) && swarmOk &&

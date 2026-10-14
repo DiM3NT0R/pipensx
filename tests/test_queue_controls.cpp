@@ -670,6 +670,28 @@ void testSystemCleanupGate() {
 
 } // namespace
 
+void testInjectMissingFallbackTrackers() {
+    // #94: a stored .torrent without a single tracker (HTTPS-cache race
+    // artifact) must gain the RuTracker mirror pool before the engine
+    // starts, and an already-announcing torrent must stay untouched.
+    metainfo_t trackerless {};
+    pipensx::injectMissingFallbackTrackers(trackerless);
+    assert(trackerless.num_trackers == 4);
+    assert(std::string(trackerless.trackers[0]) ==
+           "http://bt.t-ru.org/ann?magnet");
+    assert(std::string(trackerless.trackers[3]) ==
+           "http://bt4.t-ru.org/ann?magnet");
+
+    metainfo_t announced {};
+    std::snprintf(announced.trackers[0], sizeof(announced.trackers[0]),
+                  "%s", "http://example.com/announce");
+    announced.num_trackers = 1;
+    pipensx::injectMissingFallbackTrackers(announced);
+    assert(announced.num_trackers == 1);
+    assert(std::string(announced.trackers[0]) ==
+           "http://example.com/announce");
+}
+
 int main() {
     testSummarizeQueueCounts();
     testSummarizeQueueSpeedAndEta();
@@ -685,6 +707,7 @@ int main() {
     testPlanClearCompleted();
     testClearCompletedKeepsActiveAndLeased();
     testSystemCleanupGate();
+    testInjectMissingFallbackTrackers();
     std::puts("queue controls tests passed");
     return 0;
 }

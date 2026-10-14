@@ -102,11 +102,31 @@ def reassemble(chunk_bytes):
 
 
 def _qr_payload(data):
-    """Normalize QR binary payload from pyzbar (bytes) or zbar (str)."""
-    if isinstance(data, bytes):
-        return data
+    """Normalize QR binary payload from pyzbar (bytes) or zbar (str/bytes).
+
+    The stock zbar Python bindings hand binary-mode QR payloads back mangled:
+    the raw bytes were decoded as latin-1 and re-encoded as UTF-8 (#94), so
+    the 'PZ' chunk header no longer lines up byte-for-byte. A payload that
+    validates as strict UTF-8 is therefore the mangled form — invert the
+    chain and recover the raw bytes. A genuine raw chunk (zlib output plus
+    CRC/length fields) is high-entropy and never validates, so pyzbar's
+    bytes pass through untouched. A str payload is the pre-re-encoding
+    form: latin-1 recovers the raw bytes directly.
+    """
     if isinstance(data, str):
-        return data.encode("latin-1")
+        try:
+            return data.encode("latin-1")
+        except UnicodeEncodeError:
+            # Binding decoded with UTF-8 + replacement: bytes beyond BMP
+            # Latin-1 are already lost; re-encode to keep the chunk parseable
+            # so reassembly reports a clean CRC mismatch instead of crashing.
+            return data.encode("utf-8", errors="replace")
+    if isinstance(data, (bytes, bytearray)):
+        data = bytes(data)
+        try:
+            return data.decode("utf-8").encode("latin-1")
+        except (UnicodeDecodeError, UnicodeEncodeError):
+            return data
     raise ReportError(f"unexpected QR payload type {type(data)!r}")
 
 

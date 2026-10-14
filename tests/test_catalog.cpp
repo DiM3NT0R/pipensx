@@ -321,6 +321,66 @@ void testHttpsCacheWinsMetadataRace() {
     unlink(pathTemplate);
 }
 
+void testHttpsCacheTorrentGetsFallbackTrackers() {
+    /* #94: itorrents.net serves hash-verified torrents with no trackers, so
+       when the HTTPS cache wins the metadata race the raw cache body used
+       to be published verbatim and the download started DHT-only. The
+       published .torrent must instead carry the RuTracker mirror pool. */
+    const std::string info =
+        "d6:lengthi1e4:name8:test.nsp12:piece lengthi16384e6:pieces20:"
+        "01234567890123456789e";
+    uint8_t digest[20];
+    sha1(info.data(), info.size(), digest);
+    const std::string magnet =
+        "magnet:?xt=urn:btih:" + hexHash(digest) +
+        "&tr=http://bt.t-ru.org/ann?magnet";
+
+    MagnetResolver resolver(
+        [&](const std::string&, const std::string& candidatePath,
+            const MagnetResolver::CancelCheck&, std::string&) {
+            // itorrents-style body: a valid torrent with zero trackers.
+            const std::string body = "d4:info" + info + "e";
+            std::ofstream out(candidatePath,
+                              std::ios::binary | std::ios::trunc);
+            out.write(body.data(),
+                      static_cast<std::streamsize>(body.size()));
+            return out.good();
+        });
+
+    char pathTemplate[] = "/tmp/pipensx-cache-trackers-XXXXXX";
+    int fd = mkstemp(pathTemplate);
+    assert(fd >= 0);
+    close(fd);
+    unlink(pathTemplate);
+    std::atomic<bool> cancelled{false};
+    std::string error;
+    assert(resolver.resolveToFile(magnet, pathTemplate, cancelled, nullptr,
+                                  error));
+
+    std::ifstream input(pathTemplate, std::ios::binary);
+    std::vector<uint8_t> body(
+        (std::istreambuf_iterator<char>(input)),
+        std::istreambuf_iterator<char>());
+    metainfo_t parsed;
+    assert(metainfo_parse(body.data(), body.size(), &parsed));
+    assert(std::memcmp(parsed.info_hash, digest, 20) == 0);
+    const char* mirrors[] = {
+        "http://bt.t-ru.org/ann?magnet", "http://bt2.t-ru.org/ann?magnet",
+        "http://bt3.t-ru.org/ann?magnet", "http://bt4.t-ru.org/ann?magnet"};
+    for (const char* mirror : mirrors) {
+        bool found = false;
+        for (uint32_t i = 0; i < parsed.num_trackers && !found; ++i)
+            found = std::string(parsed.trackers[i]) == mirror;
+        assert(found);
+    }
+    metainfo_free(&parsed);
+    assert(access((std::string(pathTemplate) + ".cache-candidate").c_str(),
+                  F_OK) != 0);
+    assert(access((std::string(pathTemplate) + ".swarm-candidate").c_str(),
+                  F_OK) != 0);
+    unlink(pathTemplate);
+}
+
 void testRaceUserCancelAbortsBoth() {
     const std::string info =
         "d6:lengthi1e4:name8:test.nsp12:piece lengthi16384e6:pieces20:"
@@ -2932,6 +2992,7 @@ int main() {
     testInfoDictParsing();
     testResolveFromPresetInfoDict();
     testHttpsCacheWinsMetadataRace();
+    testHttpsCacheTorrentGetsFallbackTrackers();
     testRaceUserCancelAbortsBoth();
     testTorrentConstruction();
     testMetadataIndexParsing();

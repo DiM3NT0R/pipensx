@@ -13,6 +13,7 @@
 #include "package_coordinator.hpp"
 #include "nx_file_types.hpp"
 #include "port_selection.hpp"
+#include "magnet_resolver.hpp"
 #include "../install/install_backend.hpp"
 #include "../install/install_journal.hpp"
 #include "../install/system_cleanup.hpp"
@@ -341,6 +342,19 @@ TaskSource persistedSource(const std::string& value) {
 }
 
 } // namespace
+
+void injectMissingFallbackTrackers(metainfo_t& mi) {
+    if (mi.num_trackers != 0)
+        return;
+    const std::vector<std::string> pool = rutrackerFallbackTrackers();
+    for (const std::string& tracker : pool) {
+        if (mi.num_trackers >= MAX_TRACKERS)
+            break;
+        std::snprintf(mi.trackers[mi.num_trackers],
+                      sizeof(mi.trackers[0]), "%s", tracker.c_str());
+        ++mi.num_trackers;
+    }
+}
 
 void updateTaskDownloadProgress(DownloadTask& task, uint64_t completedBytes,
                                 uint64_t progressAtMs) {
@@ -2938,6 +2952,18 @@ void DownloadManager::runTask(RunnerSlot* slot, ClaimedTask claim) {
             persistState(lock);
         }
         return;
+    }
+    /* #94: torrents resolved while the HTTPS cache won the metadata race
+       were stored without a single tracker, leaving the engine DHT-only.
+       Every start of a tracker-less task injects the RuTracker mirror pool
+       in memory — this heals downloads queued by older builds without
+       touching the stored .torrent on disk. */
+    if (metainfo.num_trackers == 0) {
+        injectMissingFallbackTrackers(metainfo);
+        log_msg("[manager] task %s had no trackers; injected %u RuTracker "
+                "fallback announce(s)\n",
+                activeId.c_str(),
+                static_cast<unsigned>(metainfo.num_trackers));
     }
 
     std::unique_ptr<PackageCoordinator> coordinator;

@@ -23,7 +23,27 @@ decode_report = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(decode_report)
 
 
+def check_qr_payload_normalization():
+    """_qr_payload must invert the zbar latin-1 -> UTF-8 mangling (#94).
+
+    Binary-mode QR payloads come back from the stock zbar Python bindings
+    as the UTF-8 encoding of their latin-1 interpretation, which used to
+    break the chunk header check. Genuine raw chunks (high-entropy zlib
+    output) are not valid UTF-8 and must pass through untouched.
+    """
+    raw = b"PZ\x01\x0b\xe2\x00\x01\xff" + bytes(range(128, 256))
+    # Not valid UTF-8 -> pyzbar-style raw bytes pass through.
+    assert decode_report._qr_payload(raw) == raw
+    # Mangled form (always valid UTF-8 by construction) is inverted.
+    mangled = raw.decode("latin-1").encode("utf-8")
+    assert decode_report._qr_payload(mangled) == raw
+    # Pre-re-encoded str form recovers through latin-1 directly.
+    assert decode_report._qr_payload(raw.decode("latin-1")) == raw
+
+
 def main():
+    check_qr_payload_normalization()
+
     if not BINARY.exists():
         print(f"test_bug_report_decode: {BINARY} not built", file=sys.stderr)
         return 1

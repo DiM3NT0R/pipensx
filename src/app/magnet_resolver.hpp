@@ -68,4 +68,9 @@ private:
 // are definitive.
 bool httpsCacheErrorRetryable(const std::string& error);
 
+// The canonical RuTracker announce mirror pool (bt/bt2/bt3/bt4.t-ru.org).
+// Used to enrich tracker-less HTTPS-cache torrents and as the fallback
+// injected into stored .torrent files that carry no announce at all (#94).
+std::vector<std::string> rutrackerFallbackTrackers();
+
 } // namespace pipensx

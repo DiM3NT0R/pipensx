@@ -56,6 +56,12 @@ enum class DownloadStatus {
 
 enum class TaskSource { Torrent, Debrid };
 
+// #94: torrents stored without a single tracker (the HTTPS-cache metadata
+// race shipped tracker-less .torrent files) are healed by copying the
+// RuTracker mirror pool into the parsed metainfo before the engine starts.
+// No-op when the torrent already carries an announce. Exposed for tests.
+void injectMissingFallbackTrackers(metainfo_t& mi);
+
 enum class TransferMode {
     DownloadOnly,
     StreamInstall,
